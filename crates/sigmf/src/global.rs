@@ -1,4 +1,4 @@
-use super::{Integer, Number};
+use super::{Integer, Number, SmfError};
 use geojson::GeoJson;
 use serde::de::{self, Deserializer, Visitor};
 use serde_derive::Deserialize;
@@ -57,6 +57,56 @@ pub struct SmfDataType {
     pub dtype: Option<String>,
     pub endian: Option<String>,
     pub byte: Option<String>,
+}
+
+impl SmfDataType {
+    pub fn new(
+        domain: &str,
+        dtype: Option<&str>,
+        endian: Option<&str>,
+        byte: Option<&str>,
+    ) -> Self {
+        SmfDataType {
+            domain: domain.to_string(),
+            dtype: dtype.map(|s| s.to_string()),
+            endian: endian.map(|s| s.to_string()),
+            byte: byte.map(|s| s.to_string()),
+        }
+    }
+
+    pub fn set_domain(&mut self, domain: &str) {
+        self.domain = domain.to_string();
+    }
+
+    pub fn set_dtype(&mut self, dtype: Option<&str>) -> Result<(), SmfError> {
+        if self.byte.is_some() {
+            return Err(SmfError::InvalidDataType(
+                "dtype and byte cannot appear together".into(),
+            ));
+        }
+        self.dtype = dtype.map(|s| s.to_string());
+        Ok(())
+    }
+
+    pub fn set_endian(&mut self, endian: Option<&str>) -> Result<(), SmfError> {
+        if self.byte.is_some() {
+            return Err(SmfError::InvalidDataType(
+                "endian and byte cannot appear together".into(),
+            ));
+        }
+        self.endian = endian.map(|s| s.to_string());
+        Ok(())
+    }
+
+    pub fn set_byte(&mut self, byte: Option<&str>) -> Result<(), SmfError> {
+        if self.dtype.is_some() || self.endian.is_some() {
+            return Err(SmfError::InvalidDataType(
+                "byte must appear only if dtype and endian are absent".into(),
+            ));
+        }
+        self.byte = byte.map(|s| s.to_string());
+        Ok(())
+    }
 }
 
 impl serde::Serialize for SmfDataType {

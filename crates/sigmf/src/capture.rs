@@ -4,11 +4,6 @@ use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Deserialize)]
 pub struct SmfCapture {
-    pub capture_list: Vec<SmfCaptureList>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SmfCaptureList {
     // Required fields
     #[serde(rename = "core:sample_start")]
     pub sample_start: Integer,

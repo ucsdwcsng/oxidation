@@ -1,6 +1,10 @@
-#[allow(unused_imports)]
-use serde_derive::{Deserialize, Serialize};
+use core::fmt;
+use meta::SmfMeta;
+use serde_derive::Deserialize;
 use serde_json;
+use sha2::Digest;
+use std::error::Error;
+use std::io::Read;
 
 pub mod capture;
 pub mod collection;
@@ -23,31 +27,69 @@ pub struct SmfRecording {
     pub hash: String,
 }
 
+#[derive(Debug)]
+pub enum SmfError {
+    Io(std::io::Error),
+    Serde(serde_json::Error),
+    InvalidDataType(Box<dyn Error>),
+}
+
+impl std::fmt::Display for SmfError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SmfError::Io(err) => write!(f, "IO error: {}", err),
+            SmfError::Serde(err) => write!(f, "Serde error: {}", err),
+            SmfError::InvalidDataType(err) => write!(f, "Invalid data type{}", err),
+        }
+    }
+}
+
+impl Error for SmfError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            SmfError::Io(err) => Some(err),
+            SmfError::Serde(err) => Some(err),
+            SmfError::InvalidDataType(err) => None,
+        }
+    }
+}
+
 impl SigMF {
-    pub fn from_file(filename: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let file = std::fs::File::open(filename)?;
-        let reader = std::io::BufReader::new(file);
-        let sigmf: SigMF = serde_json::from_reader(reader)?;
-        Ok(sigmf)
+    pub fn new() -> Result<Self, Box<dyn Error>> {
+        Ok(SigMF {
+            collection: None,
+            recordings: Vec::new(),
+        })
     }
 }
 
 impl SmfRecording {
-    pub fn from_file(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let data_path = path.to_string() + ".sigmf-data";
-        let meta_path = path.to_string() + ".sigmf-meta";
+    pub fn new(
+        metadata_file_path: &String,
+        data_file_path: &String,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let metadata_file = std::fs::File::open(&metadata_file_path)?;
+        let metadata_reader = std::io::BufReader::new(metadata_file);
+        let metadata: SmfMeta = serde_json::from_reader(metadata_reader)?;
 
-        let data_file = std::fs::File::open(data_path)?;
-        let meta_file = std::fs::File::open(meta_path)?;
+        println!("{:?}", metadata);
 
+        let data_file = std::fs::File::open(&data_file_path)?;
         let data_reader = std::io::BufReader::new(data_file);
-        let meta_reader = std::io::BufReader::new(meta_file);
+        let mut data: Vec<u8> = Vec::new();
+        data_reader.take(1000).read_to_end(&mut data)?;
 
-        let meta: meta::SmfMeta = serde_json::from_reader(meta_reader)?;
-        println!("{:#?}", meta);
+        let mut hasher = sha2::Sha512::new();
+        hasher.update(&data);
+        let hash = hasher.finalize();
+        let hash_str = format!("{:x}", hash);
 
-        let data: data::SmfData = serde_json::from_reader(data_reader)?;
+        let recording_name = &data_file_path.replace(".sigmf-data", "");
 
-        Ok(SmfRecording { meta, data })
+        let recording = SmfRecording {
+            name: recording_name.to_string(),
+            hash: hash_str,
+        };
+        Ok(recording)
     }
 }
