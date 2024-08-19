@@ -1,7 +1,7 @@
 use crate::{recording, utils::hash::*, SigMF, SmfError, MAX_META_SIZE};
 use std::fs::File;
 use std::io::Read;
-use tar::{Archive, Entry};
+use tar::{Archive, Entry, Header};
 
 pub fn get_root_dir() -> String {
     let mut path = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -14,12 +14,13 @@ pub fn get_bytes_in_archive_from_name_ext(
     archive_path: &str,
     name: &str,
     ext: &str,
-) -> Result<Vec<u8>, SmfError> {
+) -> Result<(Vec<u8>, Header), SmfError> {
     let file = File::open(archive_path)?;
     let mut archive = Archive::new(file);
 
     for file in archive.entries()? {
         let mut file = file?;
+        let header = file.header().clone();
         let file_path = file.path()?.to_path_buf();
 
         if let (Some(file_name), Some(file_ext)) = (
@@ -30,7 +31,7 @@ pub fn get_bytes_in_archive_from_name_ext(
                 let mut buffer = Vec::new();
                 file.read_to_end(&mut buffer)?;
 
-                return Ok(buffer);
+                return Ok((buffer, header));
             }
         }
     }
@@ -38,12 +39,16 @@ pub fn get_bytes_in_archive_from_name_ext(
     Err(SmfError::NotFound("File not found".to_string()))
 }
 
-pub fn get_bytes_in_archive_from_hash(archive_path: &str, hash: &str) -> Result<Vec<u8>, SmfError> {
+pub fn get_bytes_in_archive_from_hash(
+    archive_path: &str,
+    hash: &str,
+) -> Result<(Vec<u8>, Header), SmfError> {
     let file = File::open(archive_path)?;
     let mut archive = Archive::new(file);
 
     for file in archive.entries()? {
         let mut file = file?;
+        let header = file.header().clone();
         if file.size() > MAX_META_SIZE as u64 {
             continue;
         }
@@ -51,13 +56,15 @@ pub fn get_bytes_in_archive_from_hash(archive_path: &str, hash: &str) -> Result<
         file.read_to_end(&mut buffer)?;
 
         let hash_str = hash_from_slice(&buffer[..])?;
-        println!("hash_str: {}", hash_str);
         if hash_str == hash {
-            return Ok(buffer);
+            return Ok((buffer, header));
         }
     }
 
-    Err(SmfError::NotFound("File not found".to_string()))
+    Err(SmfError::NotFound(format!(
+        "File not found using hash {}",
+        hash
+    )))
 }
 
 pub fn process_meta_file(file: &mut Entry<std::fs::File>, file_name: &str, sigmf: &mut SigMF) {

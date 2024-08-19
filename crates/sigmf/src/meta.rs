@@ -8,6 +8,20 @@ pub struct SmfMeta {
     pub captures: Vec<capture::SmfCapture>,
 }
 
+impl SmfMeta {
+    pub fn new(
+        global: global::SmfGlobal,
+        annotations: Vec<SmfAnnotation>,
+        captures: Vec<capture::SmfCapture>,
+    ) -> Self {
+        SmfMeta {
+            global,
+            annotations,
+            captures,
+        }
+    }
+}
+
 #[derive(Debug, Default, Deserialize)]
 pub struct SmfAnnotation {
     pub sample_start: Integer,

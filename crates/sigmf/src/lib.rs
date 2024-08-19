@@ -6,7 +6,6 @@ use tar::Archive;
 
 pub mod capture;
 pub mod collection;
-pub mod data;
 pub mod global;
 pub mod meta;
 pub mod recording;
@@ -45,20 +44,23 @@ impl SigMF {
         self.collection = Some(collection);
     }
 
-    pub fn set_path(&mut self, path: String) {
-        self.path = Some(path);
+    pub fn set_path(&mut self, path: &str) {
+        self.path = Some(path.to_string());
     }
 
     pub fn load_from_file(path: &str) -> Result<Self, SmfError> {
         assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
 
+        // Create the SigMF object
         let path_string = path.to_string();
         let mut sigmf = SigMF::default();
-        sigmf.set_path(path_string.clone());
+        sigmf.set_path(&path_string);
 
+        // Open the tar file
         let file = File::open(&path_string)?;
         let mut archive = Archive::new(file);
 
+        // Process each file in the archive
         for file in archive.entries()? {
             let mut file = file?;
             let file_path = file.path()?.to_path_buf();
@@ -83,6 +85,8 @@ impl SigMF {
                 continue;
             }
         }
+
+        // Return the SigMF object
         Ok(sigmf)
     }
 
@@ -95,7 +99,31 @@ impl SigMF {
     }
 
     pub fn save_to_file(&self, path: &str) -> Result<(), SmfError> {
-        unimplemented!()
+        assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
+
+        if let Some(archive_path) = &self.path {
+            // Create the tar file
+            let file = File::create(path)?;
+            let mut archive = tar::Builder::new(file);
+
+            // Save Recordings
+            for recording in &self.recordings {
+                let (metadata_bytes, meta_header) =
+                    utils::file::get_bytes_in_archive_from_hash(archive_path, &recording.hash)?;
+                let (data_bytes, data_header) = utils::file::get_bytes_in_archive_from_name_ext(
+                    archive_path,
+                    &recording.name,
+                    "sigmf-data",
+                )?;
+
+                archive.append(&meta_header, &metadata_bytes[..])?;
+                archive.append(&data_header, &data_bytes[..])?;
+            }
+
+            Ok(())
+        } else {
+            Err(SmfError::NotFound("Path is None".to_string()))
+        }
     }
 
     pub fn get_recordings(&self) -> Vec<recording::SmfRecording> {
@@ -118,12 +146,16 @@ impl SigMF {
     }
 
     pub fn get_meta_by_name(&self, name: &str) -> Result<meta::SmfMeta, SmfError> {
+        // Get the recording by name
         match (&self).get_recording_by_name(name) {
             Some(recording) => match &self.path {
                 Some(path) => {
-                    let buffer =
+                    // Get the meta data from the recording
+                    let (buffer, _) =
                         utils::file::get_bytes_in_archive_from_hash(path, &recording.hash)?;
                     let meta: meta::SmfMeta = serde_json::from_slice(&buffer)?;
+
+                    // Return the meta data
                     Ok(meta)
                 }
                 None => return Err(SmfError::NotFound("Path is None".to_string())),
