@@ -3,7 +3,7 @@ use serde_json;
 use std::error::Error;
 use std::fs::File;
 use std::io::Read;
-use tar::{Archive, Entry};
+use tar::Archive;
 
 pub mod capture;
 pub mod collection;
@@ -16,39 +16,13 @@ pub mod utils;
 pub type Number = f64;
 pub type Integer = u64;
 
+const MAX_META_SIZE: usize = 1_000_000;
+
 #[derive(Debug, Default)]
 pub struct SigMF {
     pub collection: Option<collection::SmfCollection>,
     pub recordings: Vec<recording::SmfRecording>,
     pub path: Option<String>,
-}
-
-pub fn read_file_as_bytes_in_archive(
-    path: &str,
-    name: &str,
-    ext: &str,
-) -> Result<Vec<u8>, SmfError> {
-    let file = File::open(path)?;
-    let mut archive = Archive::new(file);
-
-    for file in archive.entries()? {
-        let mut file = file?;
-        let file_path = file.path()?.to_path_buf();
-
-        if let (Some(file_name), Some(file_ext)) = (
-            file_path.file_stem().and_then(|s| s.to_str()),
-            file_path.extension().and_then(|s| s.to_str()),
-        ) {
-            if file_name == name && file_ext == ext {
-                let mut buffer = Vec::new();
-                file.read_to_end(&mut buffer)?;
-
-                return Ok(buffer);
-            }
-        }
-    }
-
-    Err(SmfError::NotFound("File not found".to_string()))
 }
 
 impl SigMF {
@@ -64,10 +38,22 @@ impl SigMF {
         }
     }
 
+    pub fn set_recordings(&mut self, recordings: Vec<recording::SmfRecording>) {
+        self.recordings = recordings;
+    }
+
+    pub fn set_collection(&mut self, collection: collection::SmfCollection) {
+        self.collection = Some(collection);
+    }
+
+    pub fn set_path(&mut self, path: String) {
+        self.path = Some(path);
+    }
+
     pub fn load_from_file(path: &str) -> Result<Self, SmfError> {
         assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
         let mut sigmf = SigMF::default();
-        sigmf.path = Some(path.to_string());
+        sigmf.set_path(path.to_string());
 
         // Read the tarball
         let file = File::open(path)?;
@@ -94,7 +80,7 @@ impl SigMF {
                                     name: file_name.to_string(),
                                     hash,
                                 };
-                                sigmf.recordings.push(recording);
+                                sigmf.add_recording(recording);
                             }
                             Err(_) => {
                                 println!("Warning: Skipping file: {} with invalid hash", file_name);
@@ -103,7 +89,10 @@ impl SigMF {
                             }
                         }
                     }
-                    "sigmf-collection" => unimplemented!(),
+                    "sigmf-collection" => {
+                        println!("Warning: Skipping file: {}", file.path()?.display());
+                        unimplemented!()
+                    }
                     _ => continue,
                 }
             } else {
@@ -116,6 +105,14 @@ impl SigMF {
         }
 
         Ok(sigmf)
+    }
+
+    pub fn add_recording(&mut self, recording: recording::SmfRecording) {
+        self.recordings.push(recording);
+    }
+
+    pub fn add_collection(&mut self, collection: collection::SmfCollection) {
+        self.collection = Some(collection);
     }
 
     pub fn save_to_file(&self, path: &str) -> Result<(), SmfError> {
@@ -134,18 +131,6 @@ impl SigMF {
         self.path.clone()
     }
 
-    pub fn set_recordings(&mut self, recordings: Vec<recording::SmfRecording>) {
-        self.recordings = recordings;
-    }
-
-    pub fn set_collection(&mut self, collection: collection::SmfCollection) {
-        self.collection = Some(collection);
-    }
-
-    pub fn set_path(&mut self, path: String) {
-        self.path = Some(path);
-    }
-
     pub fn get_recording_by_name(&self, name: &str) -> Option<recording::SmfRecording> {
         self.recordings
             .iter()
@@ -157,20 +142,21 @@ impl SigMF {
         match (&self).get_recording_by_name(name) {
             Some(recording) => match &self.path {
                 Some(path) => {
-                    // let mut buffer = Vec::new();
-                    // file.read_to_end(&mut buffer)?;
-                    // let meta_hash = utils::hash_from_slice(&buffer[..])?;
-
-                    // if recording.hash == meta_hash {
-                    //     let meta: meta::SmfMeta = serde_json::from_slice(&buffer)?;
-                    //     return Ok(meta);
-                    // }
-                    Ok(meta::SmfMeta::default())
+                    let buffer = utils::get_bytes_in_archive_from_hash(path, &recording.hash)?;
+                    let meta: meta::SmfMeta = serde_json::from_slice(&buffer)?;
+                    Ok(meta)
                 }
-                None => return Err(SmfError::NotFound("Path not found".to_string())),
+                None => return Err(SmfError::NotFound("Path is None".to_string())),
             },
-            None => Err(SmfError::NotFound("Recording not found".to_string())),
+            None => Err(SmfError::NotFound("Recording is None".to_string())),
         }
+    }
+
+    pub fn get_names(&self) -> Vec<String> {
+        self.recordings
+            .iter()
+            .map(|recording| recording.name.clone())
+            .collect()
     }
 }
 
@@ -180,6 +166,7 @@ pub enum SmfError {
     Serde(serde_json::Error),
     InvalidDataType(String),
     NotFound(String),
+    HashMismatch(String),
 }
 
 impl From<std::io::Error> for SmfError {
@@ -201,6 +188,7 @@ impl std::fmt::Display for SmfError {
             SmfError::Serde(err) => write!(f, "Serde error: {}", err),
             SmfError::InvalidDataType(err) => write!(f, "Invalid data type{}", err),
             SmfError::NotFound(err) => write!(f, "Not found: {}", err),
+            SmfError::HashMismatch(err) => write!(f, "Hash mismatch: {}", err),
         }
     }
 }
@@ -212,6 +200,7 @@ impl Error for SmfError {
             SmfError::Serde(err) => Some(err),
             SmfError::InvalidDataType(err) => None,
             SmfError::NotFound(err) => None,
+            SmfError::HashMismatch(err) => None,
         }
     }
 }
