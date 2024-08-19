@@ -107,6 +107,14 @@ impl SmfDataType {
         self.byte = byte.map(|s| s.to_string());
         Ok(())
     }
+
+    pub fn get_domain(&self) -> &str {
+        &self.domain
+    }
+
+    pub fn get_dtype(&self) -> Option<&str> {
+        self.dtype.as_deref()
+    }
 }
 
 impl serde::Serialize for SmfDataType {
@@ -243,7 +251,7 @@ impl<'de> serde::Deserialize<'de> for SmfDataType {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct SmfExtension {
     pub name: String,
     pub version: String,

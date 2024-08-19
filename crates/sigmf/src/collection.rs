@@ -1,8 +1,8 @@
 use serde_derive::Deserialize;
 
-use super::{global::SmfExtension, SmfRecording};
+use super::{global::SmfExtension, recording::SmfRecording};
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct SmfCollection {
     // Required fields
     pub version: String,

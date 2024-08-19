@@ -11,17 +11,19 @@ edition.workspace = true
 edition = "2021"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde_derive = "1.0"
-sigmf = { version = "0.1.0", path = "crates/sigmf" }
-uuid = "1.10.0"
 geojson = "0.24.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_derive = "1.0"
+serde_json = "1.0"
 sha2 = "0.10.8"
+sigmf = { version = "0.1.0", path = "crates/sigmf" }
+tar = "0.4"
+uuid = "1.10.0"
 
 [workspace.dependencies]
-serde.workspace = true
-serde_json.workspace = true
-serde_derive.workspace = true
 geojson.workspace = true
+serde.workspace = true
+serde_derive.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
+tar.workspace = true
