@@ -1,4 +1,4 @@
-use crate::{recording, utils::hash::*, SigMF, SmfError, MAX_META_SIZE};
+use crate::{collection, recording, utils::hash::*, SigMF, SmfError, MAX_META_SIZE};
 use std::fs::File;
 use std::io::Read;
 use tar::{Archive, Entry, Header};
@@ -67,16 +67,13 @@ pub fn get_bytes_in_archive_from_hash(
     )))
 }
 
-pub fn process_meta_file(file: &mut Entry<std::fs::File>, file_name: &str, sigmf: &mut SigMF) {
+pub fn process_meta_file(file: &mut Entry<File>, file_name: &str, sigmf: &mut SigMF) {
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).expect("Failed to read file");
     let meta_hash = hash_from_slice(&buffer[..]);
     match meta_hash {
         Ok(hash) => {
-            let recording = recording::SmfRecording {
-                name: file_name.to_string(),
-                hash,
-            };
+            let recording = recording::SmfRecording::new(file_name.to_string(), hash);
             sigmf.add_recording(recording);
         }
         Err(_) => {
@@ -84,4 +81,16 @@ pub fn process_meta_file(file: &mut Entry<std::fs::File>, file_name: &str, sigmf
             eprintln!("Error: {}", meta_hash.unwrap_err());
         }
     }
+}
+
+pub fn process_collection_file(file: &mut Entry<File>, sigmf: &mut SigMF) {
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).expect("Failed to read file");
+
+    let buffer_str = std::str::from_utf8(&buffer[..]).expect("Failed to convert to string");
+    println!("buffer_str: {}", buffer_str);
+    let collection: collection::SmfCollection =
+        serde_json::from_slice(&buffer[..]).expect("Failed to parse collection");
+
+    sigmf.set_collection(collection);
 }

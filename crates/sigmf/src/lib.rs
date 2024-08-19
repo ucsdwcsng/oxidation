@@ -2,6 +2,7 @@ use core::fmt;
 use serde_json;
 use std::error::Error;
 use std::fs::File;
+use std::path;
 use tar::Archive;
 
 pub mod capture;
@@ -16,39 +17,79 @@ pub type Integer = u64;
 
 const MAX_META_SIZE: usize = 1_000_000;
 
+/// A SigMF object that holds the collection, recordings, and path of a .sigmf file
+///
+/// # Fields
+/// * `collection` - An optional [`collection::SmfCollection`] object
+/// * `recordings` - A vector of [`recording::SmfRecording`] objects
+/// * `path` - An optional string slice that holds the path to the .sigmf file
 #[derive(Debug, Default)]
 pub struct SigMF {
     pub collection: Option<collection::SmfCollection>,
     pub recordings: Vec<recording::SmfRecording>,
-    pub path: Option<String>,
+    pub archive_path: Option<String>,
 }
 
 impl SigMF {
-    pub fn new(
-        collection: Option<collection::SmfCollection>,
-        recordings: Vec<recording::SmfRecording>,
-        path: Option<String>,
-    ) -> Self {
+    /// Create a new [`SigMF`] object using an optional path
+    ///
+    /// # Arguments
+    /// * `path` - An optional string slice that holds the path to the .sigmf file
+    ///
+    /// # Returns
+    /// A new [`SigMF`] object
+    ///
+    /// [`SigMF`]: crate::SigMF
+    pub fn new(path: String) -> Self {
         SigMF {
-            collection,
-            recordings,
-            path,
+            collection: None,
+            recordings: vec![],
+            archive_path: Some(path),
         }
     }
 
+    /// Set the recordings of the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `recordings` - A vector of [`recording::SmfRecording`] objects
+    ///
+    /// [`SigMF`]: crate::SigMF
+    /// [`recording::SmfRecording`]: crate::recording::SmfRecording
     pub fn set_recordings(&mut self, recordings: Vec<recording::SmfRecording>) {
         self.recordings = recordings;
     }
 
+    /// Set the collection of the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `collection` - A [`collection::SmfCollection`] object
+    ///
+    /// [`SigMF`]: crate::SigMF
+    /// [`collection::SmfCollection`]: crate::collection::SmfCollection
     pub fn set_collection(&mut self, collection: collection::SmfCollection) {
         self.collection = Some(collection);
     }
 
+    /// Set the path of the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `path` - A string slice that holds the path to the .sigmf file
+    ///
+    /// [`SigMF`]: crate::SigMF
     pub fn set_path(&mut self, path: &str) {
-        self.path = Some(path.to_string());
+        self.archive_path = Some(path.to_string());
     }
 
-    pub fn load_from_file(path: &str) -> Result<Self, SmfError> {
+    /// Load a [`SigMF`] object from a .sigmf file
+    ///
+    /// # Arguments
+    /// * `path` - A string slice that holds the path to the .sigmf file
+    ///
+    /// # Returns
+    /// A Result object with the SigMF object if successful, or a SmfError if an error occurred
+    ///
+    /// [`SigMF`]: crate::SigMF
+    pub fn load(path: &str) -> Result<Self, SmfError> {
         assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
 
         // Create the SigMF object
@@ -75,8 +116,7 @@ impl SigMF {
                         utils::file::process_meta_file(&mut file, &file_name, &mut sigmf)
                     }
                     "sigmf-collection" => {
-                        utils::debug::print_warning(&file_path_str, "Skipping file");
-                        unimplemented!()
+                        utils::file::process_collection_file(&mut file, &mut sigmf)
                     }
                     _ => continue,
                 }
@@ -90,39 +130,62 @@ impl SigMF {
         Ok(sigmf)
     }
 
+    /// Add a recording to the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `recording` - A [`recording::SmfRecording`] object
+    ///
+    /// [`SigMF`]: crate::SigMF
+    /// [`recording::SmfRecording`]: crate::recording::SmfRecording
     pub fn add_recording(&mut self, recording: recording::SmfRecording) {
         self.recordings.push(recording);
     }
 
+    /// Add a collection to the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `collection` - A [`collection::SmfCollection`] object
+    ///
+    /// [`SigMF`]: crate::SigMF
+    /// [`collection::SmfCollection`]: crate::collection::SmfCollection
     pub fn add_collection(&mut self, collection: collection::SmfCollection) {
         self.collection = Some(collection);
     }
 
-    pub fn save_to_file(&self, path: &str) -> Result<(), SmfError> {
-        assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
+    /// Save the [`SigMF`] object to a .sigmf file
+    ///
+    /// # Arguments
+    /// * `path` - A string slice that holds the path to the .sigmf file
+    ///
+    /// # Returns
+    /// A unit if successful, or a SmfError if an error occurred
+    pub fn save(&self) -> Result<(), SmfError> {
+        match &self.archive_path {
+            Some(path) => {
+                assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
 
-        if let Some(archive_path) = &self.path {
-            // Create the tar file
-            let file = File::create(path)?;
-            let mut archive = tar::Builder::new(file);
+                // Create the tar file
+                let file = File::create(path)?;
+                let mut archive = tar::Builder::new(file);
 
-            // Save Recordings
-            for recording in &self.recordings {
-                let (metadata_bytes, meta_header) =
-                    utils::file::get_bytes_in_archive_from_hash(archive_path, &recording.hash)?;
-                let (data_bytes, data_header) = utils::file::get_bytes_in_archive_from_name_ext(
-                    archive_path,
-                    &recording.name,
-                    "sigmf-data",
-                )?;
+                // Save Recordings
+                for recording in &self.recordings {
+                    let (metadata_bytes, meta_header) =
+                        utils::file::get_bytes_in_archive_from_hash(path, &recording.get_hash())?;
+                    let (data_bytes, data_header) =
+                        utils::file::get_bytes_in_archive_from_name_ext(
+                            path,
+                            &recording.get_name(),
+                            "sigmf-data",
+                        )?;
 
-                archive.append(&meta_header, &metadata_bytes[..])?;
-                archive.append(&data_header, &data_bytes[..])?;
+                    archive.append(&meta_header, &metadata_bytes[..])?;
+                    archive.append(&data_header, &data_bytes[..])?;
+                }
+
+                Ok(())
             }
-
-            Ok(())
-        } else {
-            Err(SmfError::NotFound("Path is None".to_string()))
+            None => Err(SmfError::NotFound("Path is None".to_string())),
         }
     }
 
@@ -135,24 +198,24 @@ impl SigMF {
     }
 
     pub fn get_path(&self) -> Option<String> {
-        self.path.clone()
+        self.archive_path.clone()
     }
 
     pub fn get_recording_by_name(&self, name: &str) -> Option<recording::SmfRecording> {
         self.recordings
             .iter()
-            .find(|recording| recording.name == name)
+            .find(|recording| recording.get_name() == name)
             .cloned()
     }
 
     pub fn get_meta_by_name(&self, name: &str) -> Result<meta::SmfMeta, SmfError> {
         // Get the recording by name
         match (&self).get_recording_by_name(name) {
-            Some(recording) => match &self.path {
+            Some(recording) => match &self.archive_path {
                 Some(path) => {
                     // Get the meta data from the recording
                     let (buffer, _) =
-                        utils::file::get_bytes_in_archive_from_hash(path, &recording.hash)?;
+                        utils::file::get_bytes_in_archive_from_hash(path, &recording.get_hash())?;
                     let meta: meta::SmfMeta = serde_json::from_slice(&buffer)?;
 
                     // Return the meta data
@@ -167,7 +230,7 @@ impl SigMF {
     pub fn get_names(&self) -> Vec<String> {
         self.recordings
             .iter()
-            .map(|recording| recording.name.clone())
+            .map(|recording| recording.get_name())
             .collect()
     }
 }
@@ -216,3 +279,4 @@ impl Error for SmfError {
         }
     }
 }
+

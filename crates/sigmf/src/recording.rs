@@ -3,8 +3,8 @@ use serde_derive::Deserialize;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct SmfRecording {
-    pub name: String,
-    pub hash: String,
+    name: String,
+    hash: String,
 }
 
 impl SmfRecording {
@@ -22,5 +22,20 @@ impl SmfRecording {
         };
         Ok(recording)
     }
-}
 
+    pub fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn get_hash(&self) -> String {
+        self.hash.clone()
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    pub fn set_hash(&mut self, hash: String) {
+        self.hash = hash;
+    }
+}
