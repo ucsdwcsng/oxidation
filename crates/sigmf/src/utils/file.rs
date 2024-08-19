@@ -88,7 +88,6 @@ pub fn process_collection_file(file: &mut Entry<File>, sigmf: &mut SigMF) {
     file.read_to_end(&mut buffer).expect("Failed to read file");
 
     let buffer_str = std::str::from_utf8(&buffer[..]).expect("Failed to convert to string");
-    println!("buffer_str: {}", buffer_str);
     let collection: collection::SmfCollection =
         serde_json::from_slice(&buffer[..]).expect("Failed to parse collection");
 
