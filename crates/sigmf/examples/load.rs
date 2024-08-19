@@ -1,4 +1,4 @@
-use sigmf::{utils::get_root_dir, SigMF};
+use sigmf::{utils::file::get_root_dir, SigMF};
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {

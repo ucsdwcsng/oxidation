@@ -2,7 +2,6 @@ use core::fmt;
 use serde_json;
 use std::error::Error;
 use std::fs::File;
-use std::io::Read;
 use tar::Archive;
 
 pub mod capture;
@@ -52,16 +51,18 @@ impl SigMF {
 
     pub fn load_from_file(path: &str) -> Result<Self, SmfError> {
         assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
-        let mut sigmf = SigMF::default();
-        sigmf.set_path(path.to_string());
 
-        // Read the tarball
-        let file = File::open(path)?;
+        let path_string = path.to_string();
+        let mut sigmf = SigMF::default();
+        sigmf.set_path(path_string.clone());
+
+        let file = File::open(&path_string)?;
         let mut archive = Archive::new(file);
 
         for file in archive.entries()? {
             let mut file = file?;
             let file_path = file.path()?.to_path_buf();
+            let file_path_str = format!("{}", file_path.display());
 
             if let (Some(file_name), Some(file_ext)) = (
                 file_path.file_stem().and_then(|s| s.to_str()),
@@ -69,41 +70,19 @@ impl SigMF {
             ) {
                 match file_ext {
                     "sigmf-meta" => {
-                        let mut buffer = Vec::new();
-                        file.read_to_end(&mut buffer)?;
-
-                        let meta_hash = utils::hash_from_slice(&buffer[..]);
-
-                        match meta_hash {
-                            Ok(hash) => {
-                                let recording = recording::SmfRecording {
-                                    name: file_name.to_string(),
-                                    hash,
-                                };
-                                sigmf.add_recording(recording);
-                            }
-                            Err(_) => {
-                                println!("Warning: Skipping file: {} with invalid hash", file_name);
-                                println!("Error: {}", meta_hash.unwrap_err());
-                                continue;
-                            }
-                        }
+                        utils::file::process_meta_file(&mut file, &file_name, &mut sigmf)
                     }
                     "sigmf-collection" => {
-                        println!("Warning: Skipping file: {}", file.path()?.display());
+                        utils::debug::print_warning(&file_path_str, "Skipping file");
                         unimplemented!()
                     }
                     _ => continue,
                 }
             } else {
-                println!(
-                    "Warning: Skipping file {} with invalid extension",
-                    file.path()?.display()
-                );
+                utils::debug::print_warning(&file_path_str, "Skipping file with invalid extension");
                 continue;
             }
         }
-
         Ok(sigmf)
     }
 
@@ -142,7 +121,8 @@ impl SigMF {
         match (&self).get_recording_by_name(name) {
             Some(recording) => match &self.path {
                 Some(path) => {
-                    let buffer = utils::get_bytes_in_archive_from_hash(path, &recording.hash)?;
+                    let buffer =
+                        utils::file::get_bytes_in_archive_from_hash(path, &recording.hash)?;
                     let meta: meta::SmfMeta = serde_json::from_slice(&buffer)?;
                     Ok(meta)
                 }

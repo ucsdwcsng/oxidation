@@ -1,4 +1,4 @@
-use crate::utils::get_hash_from;
+use crate::utils::hash::get_hash_from;
 use serde_derive::Deserialize;
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -23,3 +23,4 @@ impl SmfRecording {
         Ok(recording)
     }
 }
+
