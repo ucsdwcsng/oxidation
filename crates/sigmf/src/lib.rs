@@ -2,7 +2,6 @@ use core::fmt;
 use serde_json;
 use std::error::Error;
 use std::fs::File;
-use std::path;
 use tar::Archive;
 
 pub mod capture;
@@ -273,10 +272,9 @@ impl Error for SmfError {
         match self {
             SmfError::Io(err) => Some(err),
             SmfError::Serde(err) => Some(err),
-            SmfError::InvalidDataType(err) => None,
-            SmfError::NotFound(err) => None,
-            SmfError::HashMismatch(err) => None,
+            SmfError::InvalidDataType(_err) => None,
+            SmfError::NotFound(_err) => None,
+            SmfError::HashMismatch(_err) => None,
         }
     }
 }
-

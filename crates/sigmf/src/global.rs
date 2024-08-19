@@ -175,7 +175,7 @@ impl<'de> serde::Deserialize<'de> for SmfDataType {
             where
                 E: de::Error,
             {
-                let mut domain = None;
+                let domain;
                 let mut dtype = None;
                 let mut endian = None;
                 let mut byte = None;
@@ -345,10 +345,6 @@ mod tests {
         let valid_dtype1_str = r#""cf32_le""#;
         let valid_dtype2_str = r#""ru32_be""#;
         let valid_dtype3_str = r#""cu8""#;
-
-        let invalid_dtype1 = r#""cf32""#;
-        let invalid_dtype2 = r#""cf32_le_u8""#;
-        let invalid_dtype3 = r#""cle""#;
 
         assert_eq!(
             serde_json::from_str::<SmfDataType>(valid_dtype1_str).unwrap(),
