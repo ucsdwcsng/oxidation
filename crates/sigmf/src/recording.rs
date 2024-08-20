@@ -1,4 +1,4 @@
-use crate::utils::hash::get_hash_from;
+use crate::utils::hash::hash_from_path;
 use serde_derive::Deserialize;
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -8,12 +8,15 @@ pub struct SmfRecording {
 }
 
 impl SmfRecording {
-    pub fn new(name: String, hash: String) -> Self {
-        SmfRecording { name, hash }
+    pub fn new(name: &str, hash: &str) -> Self {
+        SmfRecording {
+            name: name.to_string(),
+            hash: hash.to_string(),
+        }
     }
 
     pub fn from_path(metafile_path: &String) -> Result<Self, Box<dyn std::error::Error>> {
-        let hash_str = get_hash_from(&metafile_path)?;
+        let hash_str = hash_from_path(&metafile_path)?;
 
         let recording_name = &metafile_path.replace(".sigmf-meta", "");
         let recording = SmfRecording {

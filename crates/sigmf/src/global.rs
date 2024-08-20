@@ -1,10 +1,10 @@
 use super::{Integer, Number, SmfError};
 use geojson::GeoJson;
 use serde::de::{self, Deserializer, Visitor};
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct SmfGlobal {
     // Required fields
     #[serde(rename = "core:version")]
@@ -51,7 +51,7 @@ pub struct SmfGlobal {
     pub trailing_bytes: Option<Integer>,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct SmfDataType {
     pub domain: String,
     pub dtype: Option<String>,
@@ -59,61 +59,145 @@ pub struct SmfDataType {
     pub byte: Option<String>,
 }
 
+pub enum SmfDataTypeDomain {
+    Real,
+    Complex,
+}
+
+pub enum SmfDataTypeDtype {
+    F32,
+    F64,
+    I16,
+    I32,
+    U16,
+    U32,
+}
+
+pub enum SmfDataTypeEndian {
+    LE,
+    BE,
+}
+
+pub enum SmfDataTypeByte {
+    I8,
+    U8,
+}
+
 impl SmfDataType {
     pub fn new(
-        domain: &str,
-        dtype: Option<&str>,
-        endian: Option<&str>,
-        byte: Option<&str>,
+        domain: SmfDataTypeDomain,
+        dtype: Option<SmfDataTypeDtype>,
+        endian: Option<SmfDataTypeEndian>,
+        byte: Option<SmfDataTypeByte>,
     ) -> Self {
-        SmfDataType {
-            domain: domain.to_string(),
-            dtype: dtype.map(|s| s.to_string()),
-            endian: endian.map(|s| s.to_string()),
-            byte: byte.map(|s| s.to_string()),
+        let mut datatype = SmfDataType::default();
+
+        datatype.set_domain(domain);
+
+        if let Some(dtype) = dtype {
+            datatype.set_dtype(dtype).unwrap();
         }
+
+        if let Some(endian) = endian {
+            datatype.set_endian(endian).unwrap();
+        }
+
+        if let Some(byte) = byte {
+            datatype.set_byte(byte).unwrap();
+        }
+
+        datatype
     }
 
-    pub fn set_domain(&mut self, domain: &str) {
-        self.domain = domain.to_string();
+    pub fn set_domain(&mut self, domain: SmfDataTypeDomain) {
+        self.domain = match domain {
+            SmfDataTypeDomain::Real => "r".to_string(),
+            SmfDataTypeDomain::Complex => "c".to_string(),
+        };
     }
 
-    pub fn set_dtype(&mut self, dtype: Option<&str>) -> Result<(), SmfError> {
+    pub fn set_dtype(&mut self, dtype: SmfDataTypeDtype) -> Result<(), SmfError> {
         if self.byte.is_some() {
             return Err(SmfError::InvalidDataType(
                 "dtype and byte cannot appear together".into(),
             ));
         }
-        self.dtype = dtype.map(|s| s.to_string());
+        self.dtype = match dtype {
+            SmfDataTypeDtype::F32 => Some("f32".to_string()),
+            SmfDataTypeDtype::F64 => Some("f64".to_string()),
+            SmfDataTypeDtype::I16 => Some("i16".to_string()),
+            SmfDataTypeDtype::I32 => Some("i32".to_string()),
+            SmfDataTypeDtype::U16 => Some("u16".to_string()),
+            SmfDataTypeDtype::U32 => Some("u32".to_string()),
+        };
+
         Ok(())
     }
 
-    pub fn set_endian(&mut self, endian: Option<&str>) -> Result<(), SmfError> {
+    pub fn set_endian(&mut self, endian: SmfDataTypeEndian) -> Result<(), SmfError> {
         if self.byte.is_some() {
             return Err(SmfError::InvalidDataType(
                 "endian and byte cannot appear together".into(),
             ));
         }
-        self.endian = endian.map(|s| s.to_string());
+
+        self.endian = match endian {
+            SmfDataTypeEndian::LE => Some("le".to_string()),
+            SmfDataTypeEndian::BE => Some("be".to_string()),
+        };
+
         Ok(())
     }
 
-    pub fn set_byte(&mut self, byte: Option<&str>) -> Result<(), SmfError> {
+    pub fn set_byte(&mut self, byte: SmfDataTypeByte) -> Result<(), SmfError> {
         if self.dtype.is_some() || self.endian.is_some() {
             return Err(SmfError::InvalidDataType(
                 "byte must appear only if dtype and endian are absent".into(),
             ));
         }
-        self.byte = byte.map(|s| s.to_string());
+
+        self.byte = match byte {
+            SmfDataTypeByte::I8 => Some("i8".to_string()),
+            SmfDataTypeByte::U8 => Some("u8".to_string()),
+        };
+
         Ok(())
     }
 
-    pub fn get_domain(&self) -> &str {
-        &self.domain
+    pub fn get_domain(&self) -> SmfDataTypeDomain {
+        match self.domain.as_str() {
+            "r" => SmfDataTypeDomain::Real,
+            "c" => SmfDataTypeDomain::Complex,
+            _ => unreachable!(),
+        }
     }
 
-    pub fn get_dtype(&self) -> Option<&str> {
-        self.dtype.as_deref()
+    pub fn get_dtype(&self) -> Option<SmfDataTypeDtype> {
+        self.dtype.as_ref().map(|dtype| match dtype.as_str() {
+            "f32" => SmfDataTypeDtype::F32,
+            "f64" => SmfDataTypeDtype::F64,
+            "i16" => SmfDataTypeDtype::I16,
+            "i32" => SmfDataTypeDtype::I32,
+            "u16" => SmfDataTypeDtype::U16,
+            "u32" => SmfDataTypeDtype::U32,
+            _ => unreachable!(),
+        })
+    }
+
+    pub fn get_endian(&self) -> Option<SmfDataTypeEndian> {
+        self.endian.as_ref().map(|endian| match endian.as_str() {
+            "le" => SmfDataTypeEndian::LE,
+            "be" => SmfDataTypeEndian::BE,
+            _ => unreachable!(),
+        })
+    }
+
+    pub fn get_byte(&self) -> Option<SmfDataTypeByte> {
+        self.byte.as_ref().map(|byte| match byte.as_str() {
+            "i8" => SmfDataTypeByte::I8,
+            "u8" => SmfDataTypeByte::U8,
+            _ => unreachable!(),
+        })
     }
 }
 
@@ -251,7 +335,7 @@ impl<'de> serde::Deserialize<'de> for SmfDataType {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SmfExtension {
     pub name: String,
     pub version: String,

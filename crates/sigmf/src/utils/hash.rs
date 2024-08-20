@@ -2,13 +2,6 @@ use crate::SmfError;
 use sha2::Digest;
 use std::io::Read;
 
-pub fn get_hash_from(path: &String) -> Result<String, SmfError> {
-    let file = std::fs::File::open(&path)?;
-    let mut reader = std::io::BufReader::new(file);
-    let hash = hash_from_reader(&mut reader)?;
-    Ok(hash)
-}
-
 pub fn hash_from_reader(reader: &mut dyn Read) -> Result<String, SmfError> {
     let mut chunk = [0u8; 1024]; // adjust chunk size as needed
 
@@ -23,6 +16,13 @@ pub fn hash_from_reader(reader: &mut dyn Read) -> Result<String, SmfError> {
     let hash = hasher.finalize();
     let hash_str = format!("{:x}", hash);
     Ok(hash_str)
+}
+
+pub fn hash_from_path(path: &String) -> Result<String, SmfError> {
+    let file = std::fs::File::open(&path)?;
+    let mut reader = std::io::BufReader::new(file);
+    let hash = hash_from_reader(&mut reader)?;
+    Ok(hash)
 }
 
 pub fn hash_from_slice(data: &[u8]) -> Result<String, SmfError> {
@@ -43,8 +43,7 @@ mod tests {
         // Test the hash of the LICENSE file since it is a known file
         let root_dir = get_root_dir();
         let path = format!("{}/LICENSE", root_dir);
-        let hash = get_hash_from(&path).unwrap();
+        let hash = hash_from_path(&path).unwrap();
         assert_eq!(hash, "b3c70582ebddd4c287211f2545f7c1305e1d7693df24218b32002774ed24e4a7df9989f6ad0d2ddb69b76f8390fdc7783a847bd81b94762d17e790cbe0835d6d");
     }
 }
-

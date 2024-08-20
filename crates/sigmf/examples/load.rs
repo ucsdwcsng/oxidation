@@ -4,8 +4,8 @@ use std::error::Error;
 fn main() -> Result<(), Box<dyn Error>> {
     // Load a SIGMF file
     let path = format!("{}/{}", get_root_dir(), "Argomoon.sigmf");
-    let sigmf = SigMF::load(&path)?;
+    let sigmf = sigmf::Builder::load(&path)?;
 
-    println!("sigmf: {:?}", sigmf);
+    println!("sigmf: {:#?}", sigmf);
     Ok(())
 }

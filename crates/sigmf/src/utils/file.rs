@@ -10,6 +10,15 @@ pub fn get_root_dir() -> String {
     canonicalized.to_str().unwrap().to_string()
 }
 
+pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SmfError> {
+    let mut header = Header::new_gnu();
+    header.set_size(meta_bytes.len() as u64);
+    header.set_path(format!("{}.sigmf-meta", filename))?;
+    header.set_mode(0o644);
+    header.set_cksum();
+    Ok(header)
+}
+
 pub fn get_bytes_in_archive_from_name_ext(
     archive_path: &str,
     name: &str,
@@ -73,7 +82,7 @@ pub fn process_meta_file(file: &mut Entry<File>, file_name: &str, sigmf: &mut Si
     let meta_hash = hash_from_slice(&buffer[..]);
     match meta_hash {
         Ok(hash) => {
-            let recording = recording::SmfRecording::new(file_name.to_string(), hash);
+            let recording = recording::SmfRecording::new(file_name, &hash);
             sigmf.add_recording(recording);
         }
         Err(_) => {
@@ -92,4 +101,3 @@ pub fn process_collection_file(file: &mut Entry<File>, sigmf: &mut SigMF) {
 
     sigmf.set_collection(collection);
 }
-

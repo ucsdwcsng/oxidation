@@ -79,56 +79,6 @@ impl SigMF {
         self.archive_path = Some(path.to_string());
     }
 
-    /// Load a [`SigMF`] object from a .sigmf file
-    ///
-    /// # Arguments
-    /// * `path` - A string slice that holds the path to the .sigmf file
-    ///
-    /// # Returns
-    /// A Result object with the SigMF object if successful, or a SmfError if an error occurred
-    ///
-    /// [`SigMF`]: crate::SigMF
-    pub fn load(path: &str) -> Result<Self, SmfError> {
-        assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
-
-        // Create the SigMF object
-        let path_string = path.to_string();
-        let mut sigmf = SigMF::default();
-        sigmf.set_path(&path_string);
-
-        // Open the tar file
-        let file = File::open(&path_string)?;
-        let mut archive = Archive::new(file);
-
-        // Process each file in the archive
-        for file in archive.entries()? {
-            let mut file = file?;
-            let file_path = file.path()?.to_path_buf();
-            let file_path_str = format!("{}", file_path.display());
-
-            if let (Some(file_name), Some(file_ext)) = (
-                file_path.file_stem().and_then(|s| s.to_str()),
-                file_path.extension().and_then(|s| s.to_str()),
-            ) {
-                match file_ext {
-                    "sigmf-meta" => {
-                        utils::file::process_meta_file(&mut file, &file_name, &mut sigmf)
-                    }
-                    "sigmf-collection" => {
-                        utils::file::process_collection_file(&mut file, &mut sigmf)
-                    }
-                    _ => continue,
-                }
-            } else {
-                utils::debug::print_warning(&file_path_str, "Skipping file with invalid extension");
-                continue;
-            }
-        }
-
-        // Return the SigMF object
-        Ok(sigmf)
-    }
-
     /// Add a recording to the [`SigMF`] object
     ///
     /// # Arguments
@@ -169,19 +119,27 @@ impl SigMF {
 
                 // Save Recordings
                 for recording in &self.recordings {
-                    let (metadata_bytes, meta_header) =
-                        utils::file::get_bytes_in_archive_from_hash(path, &recording.get_hash())?;
-                    let (data_bytes, data_header) =
-                        utils::file::get_bytes_in_archive_from_name_ext(
-                            path,
-                            &recording.get_name(),
-                            "sigmf-data",
-                        )?;
-
-                    archive.append(&meta_header, &metadata_bytes[..])?;
-                    archive.append(&data_header, &data_bytes[..])?;
+                    match utils::file::get_bytes_in_archive_from_hash(path, &recording.get_hash()) {
+                        Ok((meta_bytes, meta_header)) => {
+                            archive.append(&meta_header, &meta_bytes[..])?;
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                    match utils::file::get_bytes_in_archive_from_name_ext(
+                        path,
+                        &recording.get_name(),
+                        "sigmf-data",
+                    ) {
+                        Ok((data_bytes, data_header)) => {
+                            archive.append(&data_header, &data_bytes[..])?;
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
                 }
-
                 Ok(())
             }
             None => Err(SmfError::NotFound("Path is None".to_string())),
@@ -231,6 +189,113 @@ impl SigMF {
             .iter()
             .map(|recording| recording.get_name())
             .collect()
+    }
+}
+
+pub struct Builder {
+    tar_builder: tar::Builder<File>,
+    path: String,
+}
+
+impl Builder {
+    /// Create a new [`Builder`] object using a path.
+    /// If the file already exists, it will be removed and a new file will be created.
+    ///
+    /// # Arguments
+    /// * `path` - A string slice that holds the path to the desired .sigmf file
+    ///
+    /// # Returns
+    /// A new [`Builder`] object
+    ///
+    /// [`Builder`]: crate::Builder
+    pub fn new(path: String) -> Self {
+        // check if file exists
+        if let Ok(_) = File::open(&path) {
+            // remove file if it exists
+            std::fs::remove_file(&path).unwrap();
+        }
+        Builder {
+            tar_builder: tar::Builder::new(File::create(path.clone()).unwrap()),
+            path,
+        }
+    }
+
+    /// Add a recording to the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `meta` - A mutable reference to a [`meta::SmfMeta`] object
+    /// * `data` - A slice of bytes that holds the data to be added
+    ///
+    /// # Returns
+    /// A Result object with a unit if successful, or a SmfError if an error occurred
+    pub fn add_entry(&mut self, filename: &str, meta: meta::SmfMeta) -> Result<(), SmfError> {
+        let meta_bytes = serde_json::to_vec(&meta)?;
+        let meta_header = utils::file::get_meta_header(filename, &meta_bytes)?;
+
+        self.tar_builder.append(&meta_header, &meta_bytes[..])?;
+
+        Ok(())
+    }
+
+    /// Build the final [`SigMF`] object
+    ///
+    /// # Returns
+    /// A Result object with the SigMF object if successful, or a SmfError if an error occurred
+    ///
+    /// [`SigMF`]: crate::SigMF
+    pub fn build(&mut self) -> Result<SigMF, SmfError> {
+        self.tar_builder.finish()?;
+        Builder::load(&self.path)
+    }
+
+    /// Load a [`SigMF`] object from a .sigmf file
+    ///
+    /// # Arguments
+    /// * `path` - A string slice that holds the path to the .sigmf file
+    ///
+    /// # Returns
+    /// A Result object with the SigMF object if successful, or a SmfError if an error occurred
+    ///
+    /// [`SigMF`]: crate::SigMF
+    pub fn load(path: &str) -> Result<SigMF, SmfError> {
+        assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
+
+        // Create the SigMF object
+        let path_string = path.to_string();
+        let mut sigmf = SigMF::default();
+        sigmf.set_path(&path_string);
+
+        // Open the tar file
+        let file = File::open(&path_string)?;
+        let mut archive = Archive::new(file);
+
+        // Process each file in the archive
+        for file in archive.entries()? {
+            let mut file = file?;
+            let file_path = file.path()?.to_path_buf();
+            let file_path_str = format!("{}", file_path.display());
+
+            if let (Some(file_name), Some(file_ext)) = (
+                file_path.file_stem().and_then(|s| s.to_str()),
+                file_path.extension().and_then(|s| s.to_str()),
+            ) {
+                match file_ext {
+                    "sigmf-meta" => {
+                        utils::file::process_meta_file(&mut file, &file_name, &mut sigmf)
+                    }
+                    "sigmf-collection" => {
+                        utils::file::process_collection_file(&mut file, &mut sigmf)
+                    }
+                    _ => continue,
+                }
+            } else {
+                utils::debug::print_warning(&file_path_str, "Skipping file with invalid extension");
+                continue;
+            }
+        }
+
+        // Return the SigMF object
+        Ok(sigmf)
     }
 }
 

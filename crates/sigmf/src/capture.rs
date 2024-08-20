@@ -2,7 +2,7 @@
 use super::{Integer, Number};
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct SmfCapture {
     // Required fields
     #[serde(rename = "core:sample_start")]
