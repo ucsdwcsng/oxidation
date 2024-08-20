@@ -10,5 +10,6 @@ serde_derive.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 tar.workspace = true
+users.workspace = true
 
 [dev-dependencies]

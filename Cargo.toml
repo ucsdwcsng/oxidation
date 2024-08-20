@@ -18,6 +18,7 @@ serde_json = "1.0"
 sha2 = "0.10.8"
 sigmf = { version = "0.1.0", path = "crates/sigmf" }
 tar = "0.4"
+users = "0.11.0"
 uuid = "1.10.0"
 
 [workspace.dependencies]
@@ -27,3 +28,4 @@ serde_derive.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 tar.workspace = true
+users.workspace = true

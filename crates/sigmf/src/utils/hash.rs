@@ -14,7 +14,7 @@ pub fn hash_from_reader(reader: &mut dyn Read) -> Result<String, SmfError> {
         }
     }
     let hash = hasher.finalize();
-    let hash_str = format!("{:x}", hash);
+    let hash_str = hash.iter().map(|byte| format!("{:02x}", byte)).collect();
     Ok(hash_str)
 }
 
@@ -29,7 +29,7 @@ pub fn hash_from_slice(data: &[u8]) -> Result<String, SmfError> {
     let mut hasher = sha2::Sha512::new();
     hasher.update(data);
     let hash = hasher.finalize();
-    let hash_str = format!("{:x}", hash);
+    let hash_str = hash.iter().map(|byte| format!("{:02x}", byte)).collect();
     Ok(hash_str)
 }
 
