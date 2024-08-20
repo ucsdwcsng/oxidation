@@ -166,6 +166,13 @@ impl SigMF {
             .cloned()
     }
 
+    pub fn get_names(&self) -> Vec<String> {
+        self.recordings
+            .iter()
+            .map(|recording| recording.get_name())
+            .collect()
+    }
+
     pub fn get_meta_by_name(&self, name: &str) -> Result<meta::SmfMeta, SmfError> {
         // Get the recording by name
         match (&self).get_recording_by_name(name) {
@@ -175,8 +182,6 @@ impl SigMF {
                     let (buffer, _) =
                         utils::file::get_bytes_in_archive_from_hash(path, &recording.get_hash())?;
                     let meta: meta::SmfMeta = serde_json::from_slice(&buffer)?;
-
-                    // Return the meta data
                     Ok(meta)
                 }
                 None => return Err(SmfError::NotFound("Path is None".to_string())),
@@ -185,11 +190,29 @@ impl SigMF {
         }
     }
 
-    pub fn get_names(&self) -> Vec<String> {
-        self.recordings
-            .iter()
-            .map(|recording| recording.get_name())
-            .collect()
+    pub fn get_samples_by_recording(
+        &self,
+        recording: &recording::SmfRecording,
+    ) -> Result<Vec<u8>, SmfError> {
+        self.get_samples_by_name(&recording.get_name())
+    }
+
+    pub fn get_samples_by_name(&self, name: &str) -> Result<Vec<u8>, SmfError> {
+        let meta: meta::SmfMeta = self.get_meta_by_name(&name)?;
+        match meta.get_sha512() {
+            Some(hash) => {
+                println!("hash: {:?}", hash);
+                println!("name: {:?}", name);
+                match &self.archive_path {
+                    Some(path) => {
+                        let (data, _) = utils::file::get_bytes_in_archive_from_hash(path, &hash)?;
+                        Ok(data)
+                    }
+                    None => Err(SmfError::NotFound("Path is None".to_string())),
+                }
+            }
+            None => return Err(SmfError::NotFound("Hash is None".to_string())),
+        }
     }
 }
 
@@ -415,4 +438,3 @@ impl Error for SmfError {
         }
     }
 }
-

@@ -3,9 +3,20 @@ use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Load a SIGMF file
-    let path = format!("{}/{}", get_root_dir(), "r23-x300.sigmf");
+    let path = format!("{}/{}", get_root_dir(), "temp/0x0_0.sigmf");
     let sigmf = sigmf::Builder::load(&path)?;
 
-    println!("sigmf: {:#?}", sigmf);
+    let recordings = sigmf.get_recordings();
+    for recording in &recordings {
+        let samples = match sigmf.get_samples_by_recording(&recording) {
+            Ok(samples) => samples,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                return Ok(());
+            }
+        };
+        println!("samples: {:?}", samples);
+    }
+
     Ok(())
 }
