@@ -1,13 +1,13 @@
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 
 use super::{global::SmfExtension, recording::SmfRecording};
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct SmfCollection {
     pub collection: SmfCollectionEntry,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct SmfCollectionEntry {
     // Required fields
     #[serde(rename = "core:version")]
@@ -27,4 +27,3 @@ pub struct SmfCollectionEntry {
     #[serde(rename = "core:streams")]
     pub streams: Option<Vec<SmfRecording>>,
 }
-

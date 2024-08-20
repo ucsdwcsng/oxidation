@@ -1,10 +1,13 @@
 use super::{Integer, Number, SmfError};
 use geojson::GeoJson;
-use serde::de::{self, Deserializer, Visitor};
-use serde_derive::{Deserialize, Serialize};
+use serde::{
+    de::{self, Deserializer, Visitor},
+    ser::{Serialize, SerializeStruct},
+};
+use serde_derive::Deserialize;
 use std::fmt;
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct SmfGlobal {
     // Required fields
     #[serde(rename = "core:version")]
@@ -49,6 +52,88 @@ pub struct SmfGlobal {
     pub dataset: Option<String>,
     #[serde(rename = "core:trailing_bytes")]
     pub trailing_bytes: Option<Integer>,
+}
+
+impl Serialize for SmfGlobal {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        let mut state = serializer.serialize_struct("SmfGlobal", 17)?;
+
+        state.serialize_field("core:version", &self.version)?;
+        state.serialize_field("core:datatype", &self.datatype)?;
+
+        if let Some(sample_rate) = &self.sample_rate {
+            state.serialize_field("core:sample_rate", sample_rate)?;
+        }
+
+        if let Some(author) = &self.author {
+            state.serialize_field("core:author", author)?;
+        }
+
+        if let Some(collection) = &self.collection {
+            state.serialize_field("core:collection", collection)?;
+        }
+
+        if let Some(data_doi) = &self.data_doi {
+            state.serialize_field("core:data_doi", data_doi)?;
+        }
+
+        if let Some(description) = &self.description {
+            state.serialize_field("core:description", description)?;
+        }
+
+        if let Some(hw) = &self.hw {
+            state.serialize_field("core:hw", hw)?;
+        }
+
+        if let Some(license) = &self.license {
+            state.serialize_field("core:license", license)?;
+        }
+
+        if let Some(metadata_only) = &self.metadata_only {
+            state.serialize_field("core:metadata_only", metadata_only)?;
+        }
+
+        if let Some(meta_doi) = &self.meta_doi {
+            state.serialize_field("core:meta_doi", meta_doi)?;
+        }
+
+        if let Some(num_channels) = &self.num_channels {
+            state.serialize_field("core:num_channels", num_channels)?;
+        }
+
+        if let Some(offset) = &self.offset {
+            state.serialize_field("core:offset", offset)?;
+        }
+
+        if let Some(recorder) = &self.recorder {
+            state.serialize_field("core:recorder", recorder)?;
+        }
+
+        if let Some(sha512) = &self.sha512 {
+            state.serialize_field("core:sha512", sha512)?;
+        }
+
+        if let Some(geolocation) = &self.geolocation {
+            state.serialize_field("core:geolocation", geolocation)?;
+        }
+
+        if let Some(extensions) = &self.extensions {
+            state.serialize_field("core:extensions", extensions)?;
+        }
+
+        if let Some(dataset) = &self.dataset {
+            state.serialize_field("core:dataset", dataset)?;
+        }
+
+        if let Some(trailing_bytes) = &self.trailing_bytes {
+            state.serialize_field("core:trailing_bytes", trailing_bytes)?;
+        }
+
+        state.end()
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -335,7 +420,7 @@ impl<'de> serde::Deserialize<'de> for SmfDataType {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, serde_derive::Serialize)]
 pub struct SmfExtension {
     pub name: String,
     pub version: String,

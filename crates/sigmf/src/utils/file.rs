@@ -19,6 +19,24 @@ pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SmfE
     Ok(header)
 }
 
+pub fn get_data_header(filename: &str, data_bytes: &[u8]) -> Result<Header, SmfError> {
+    let mut header = Header::new_gnu();
+    header.set_size(data_bytes.len() as u64);
+    header.set_path(format!("{}.sigmf-data", filename))?;
+    header.set_mode(0o644);
+    header.set_cksum();
+    Ok(header)
+}
+
+pub fn get_collection_header(filename: &str, collection_bytes: &[u8]) -> Result<Header, SmfError> {
+    let mut header = Header::new_gnu();
+    header.set_size(collection_bytes.len() as u64);
+    header.set_path(format!("{}.sigmf-collection", filename))?;
+    header.set_mode(0o644);
+    header.set_cksum();
+    Ok(header)
+}
+
 pub fn get_bytes_in_archive_from_name_ext(
     archive_path: &str,
     name: &str,

@@ -1,5 +1,6 @@
 use core::fmt;
 use serde_json;
+use std::borrow::{Borrow, BorrowMut};
 use std::error::Error;
 use std::fs::File;
 use tar::Archive;
@@ -220,27 +221,98 @@ impl Builder {
         }
     }
 
-    /// Add a recording to the [`SigMF`] object
+    /// Add meta data to the .sigmf file.
+    ///
+    /// Serializes the meta data and appends it to the tar file.
     ///
     /// # Arguments
-    /// * `meta` - A mutable reference to a [`meta::SmfMeta`] object
-    /// * `data` - A slice of bytes that holds the data to be added
+    /// * `filename` - A string slice that holds the name of the file
+    /// * `meta` - A [`SmfMeta`] object
     ///
     /// # Returns
-    /// A Result object with a unit if successful, or a SmfError if an error occurred
-    pub fn add_entry(&mut self, filename: &str, meta: meta::SmfMeta) -> Result<(), SmfError> {
+    /// A Result object with the SigMF object if successful,
+    /// or a SmfError if an error occurred
+    ///
+    /// [`SmfMeta`]: crate::meta::SmfMeta
+    pub fn add_meta(&mut self, filename: &str, meta: meta::SmfMeta) -> Result<(), SmfError> {
         let meta_bytes = serde_json::to_vec(&meta)?;
         let meta_header = utils::file::get_meta_header(filename, &meta_bytes)?;
 
         self.tar_builder.append(&meta_header, &meta_bytes[..])?;
-
         Ok(())
     }
 
-    /// Build the final [`SigMF`] object
+    /// Add data to the .sigmf file.
+    /// Appends the data to the tar file.
+    ///
+    /// # Arguments
+    /// * `filename` - A string slice that holds the name of the file
+    /// * `data` - A slice of bytes that holds the data
     ///
     /// # Returns
-    /// A Result object with the SigMF object if successful, or a SmfError if an error occurred
+    /// A Result object with the SigMF object if successful,
+    /// or a SmfError if an error occurred
+    pub fn add_data(&mut self, filename: &str, data: &[u8]) -> Result<(), SmfError> {
+        let data_header = utils::file::get_data_header(filename, &data)?;
+        self.tar_builder.append(&data_header, data)?;
+        Ok(())
+    }
+
+    /// Add meta data and data to the .sigmf file.
+    /// Serializes the meta data and appends it to the tar file.
+    /// Appends the data to the tar file.
+    ///
+    /// # Arguments
+    /// * `filename` - A string slice that holds the name of the file
+    /// * `meta` - A [`SmfMeta`] object
+    /// * `data` - A slice of bytes that holds the data
+    ///
+    /// # Returns
+    /// A Result object with the SigMF object if successful,
+    /// or a SmfError if an error occurred
+    ///
+    /// [`SmfMeta`]: crate::meta::SmfMeta
+    pub fn add(
+        &mut self,
+        filename: &str,
+        meta: meta::SmfMeta,
+        data: &[u8],
+    ) -> Result<(), SmfError> {
+        self.add_meta(filename, meta)?;
+        self.add_data(filename, data)
+    }
+
+    /// Add a collection to the .sigmf file.
+    /// Serializes the collection and appends it to the tar file.
+    /// Appends the data to the tar file.
+    ///
+    /// # Arguments
+    /// * `filename` - A string slice that holds the name of the file
+    /// * `collection` - A [`SmfCollection`] object
+    ///     
+    /// # Returns
+    /// A Result object with the SigMF object if successful,
+    /// or a SmfError if an error occurred
+    ///
+    /// [`SmfCollection`]: crate::collection::SmfCollection
+    pub fn add_collection(
+        &mut self,
+        filename: &str,
+        collection: collection::SmfCollection,
+    ) -> Result<(), SmfError> {
+        let collection_bytes = serde_json::to_vec(&collection)?;
+        let collection_header = utils::file::get_collection_header(filename, &collection_bytes)?;
+
+        self.tar_builder
+            .append(&collection_header, &collection_bytes[..])?;
+        Ok(())
+    }
+
+    /// Build the final [`SigMF`] object    
+    ///
+    /// # Returns
+    /// A Result object with the SigMF object if successful,
+    /// or a SmfError if an error occurred
     ///
     /// [`SigMF`]: crate::SigMF
     pub fn build(&mut self) -> Result<SigMF, SmfError> {
@@ -343,3 +415,4 @@ impl Error for SmfError {
         }
     }
 }
+

@@ -1,7 +1,7 @@
 use crate::utils::hash::hash_from_path;
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct SmfRecording {
     name: String,
     hash: String,
