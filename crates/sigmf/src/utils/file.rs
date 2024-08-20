@@ -2,7 +2,7 @@ use crate::{collection, recording, utils::hash::*, SigMF, SmfError, MAX_META_SIZ
 use std::fs::File;
 use std::io::Read;
 use tar::{Archive, Entry, Header};
-use users::{get_current_gid, get_current_uid};
+use users::{get_current_gid, get_current_uid, get_user_by_uid};
 
 pub fn get_root_dir() -> String {
     let mut path = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -13,7 +13,12 @@ pub fn get_root_dir() -> String {
 
 pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SmfError> {
     let mut header = Header::new_gnu();
-    let username = std::env::var("USER").unwrap();
+    let username = get_user_by_uid(get_current_uid())
+        .unwrap()
+        .name()
+        .to_str()
+        .unwrap()
+        .to_string();
     let mtime = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -32,7 +37,12 @@ pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SmfE
 
 pub fn get_data_header(filename: &str, data_bytes: &[u8]) -> Result<Header, SmfError> {
     let mut header = Header::new_gnu();
-    let username = std::env::var("USER").unwrap();
+    let username = get_user_by_uid(get_current_uid())
+        .unwrap()
+        .name()
+        .to_str()
+        .unwrap()
+        .to_string();
     let mtime = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -51,7 +61,12 @@ pub fn get_data_header(filename: &str, data_bytes: &[u8]) -> Result<Header, SmfE
 
 pub fn get_collection_header(filename: &str, collection_bytes: &[u8]) -> Result<Header, SmfError> {
     let mut header = Header::new_gnu();
-    let username = std::env::var("USER").unwrap();
+    let username = get_user_by_uid(get_current_uid())
+        .unwrap()
+        .name()
+        .to_str()
+        .unwrap()
+        .to_string();
     let mtime = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
