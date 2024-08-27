@@ -1,4 +1,4 @@
-use sigmf::{utils::file::get_root_dir, SigMF};
+use sigmf::utils::file::get_root_dir;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
         };
-        println!("samples: {:?}", samples);
+        println!("num samples: {:?}\n", samples.len());
     }
 
     Ok(())

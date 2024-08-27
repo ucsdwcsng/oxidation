@@ -1,9 +1,9 @@
 use core::fmt;
 use serde_json;
-use std::borrow::{Borrow, BorrowMut};
 use std::error::Error;
 use std::fs::File;
 use tar::Archive;
+use utils::data::DataSample;
 
 pub mod capture;
 pub mod collection;
@@ -200,11 +200,11 @@ impl SigMF {
     pub fn get_samples_by_recording(
         &self,
         recording: &recording::SmfRecording,
-    ) -> Result<utils::data::SampleData, SmfError> {
+    ) -> Result<Vec<DataSample>, SmfError> {
         self.get_samples_by_name(&recording.get_name())
     }
 
-    pub fn get_samples_by_name(&self, name: &str) -> Result<utils::data::SampleData, SmfError> {
+    pub fn get_samples_by_name(&self, name: &str) -> Result<Vec<DataSample>, SmfError> {
         let meta: meta::SmfMeta = self.get_meta_by_name(&name)?;
 
         let data = match &self.archive_path {
@@ -215,8 +215,6 @@ impl SigMF {
             }
             None => Err(SmfError::NotFound("Path is None".to_string())),
         }?;
-
-        println!("data length: {:?}", data.len());
 
         let data_type = meta.get_datatype();
         match data_type.get_domain() {
