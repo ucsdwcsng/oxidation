@@ -1,7 +1,10 @@
 use core::fmt;
+use indicatif::{ProgressBar, ProgressStyle};
+use rayon::prelude::*;
 use serde_json;
 use std::error::Error;
 use std::fs::File;
+use std::sync::{Arc, Mutex};
 use tar::Archive;
 use utils::data::DataSample;
 
@@ -109,42 +112,104 @@ impl SigMF {
     ///
     /// # Returns
     /// A unit if successful, or a SmfError if an error occurred
-    pub fn save(&self) -> Result<(), SmfError> {
-        match &self.archive_path {
-            Some(path) => {
-                assert!(path.ends_with(".sigmf"), "File must have .sigmf extension");
+    pub fn save(&self, save_path: &str) -> Result<(), SmfError> {
+        if let Some(archive_path) = &self.archive_path {
+            assert!(
+                archive_path.ends_with(".sigmf"),
+                "File must have .sigmf extension"
+            );
 
-                // Create the tar file
-                let file = File::create(path)?;
-                let mut archive = tar::Builder::new(file);
+            let bar = ProgressBar::new(self.recordings.len() as u64);
+            bar.set_style(
+                ProgressStyle::with_template(
+                    "Saving\t{elapsed_precise} {msg} {bar:40.cyan/blue} {pos:>7}/{len:7} {percent}%",
+                )
+                .unwrap(),
+            );
 
-                // Save Recordings
-                for recording in &self.recordings {
-                    match utils::file::get_bytes_in_archive_from_hash(path, &recording.get_hash()) {
-                        Ok((meta_bytes, meta_header)) => {
-                            archive.append(&meta_header, &meta_bytes[..])?;
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
+            // Create the tar file
+            let file = File::create(save_path)?;
+            let new_archive = Arc::new(Mutex::new(tar::Builder::new(file)));
+
+            // Use par_iter for parallel processing of recordings
+            self.recordings.par_iter().try_for_each(|recording| {
+                bar.inc(1);
+                let mut new_archive_lock = new_archive
+                    .lock()
+                    .map_err(|_| SmfError::LockError("Error locking archive".to_string()))?;
+
+                // Fetch metadata bytes from archive
+                match utils::file::get_bytes_in_archive_from_hash(
+                    archive_path,
+                    &recording.get_hash(),
+                ) {
+                    Ok((meta_bytes, meta_header)) => {
+                        new_archive_lock.append(&meta_header, &meta_bytes[..])?;
                     }
-                    match utils::file::get_bytes_in_archive_from_name_ext(
-                        path,
-                        &recording.get_name(),
-                        "sigmf-data",
-                    ) {
-                        Ok((data_bytes, data_header)) => {
-                            archive.append(&data_header, &data_bytes[..])?;
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
+                    Err(e) => {
+                        return Err(e);
                     }
                 }
+                // Fetch data bytes from archive
+                match utils::file::get_bytes_in_archive_from_name_ext(
+                    archive_path,
+                    &recording.get_name(),
+                    "sigmf-data",
+                ) {
+                    Ok((data_bytes, data_header)) => {
+                        new_archive_lock.append(&data_header, &data_bytes[..])?;
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                }
+
                 Ok(())
-            }
-            None => Err(SmfError::NotFound("Path is None".to_string())),
+            })?;
+
+            bar.finish();
+
+            Ok(())
+        } else {
+            Err(SmfError::NotFound("Path is None".to_string()))
         }
+    }
+
+    /// Trim the [`SigMF`] object
+    /// Removes all recordings that have less than min_samp_count samples
+    pub fn trim(&mut self, min_samp_count: usize) -> Result<(), SmfError> {
+        let bar = ProgressBar::new(self.recordings.len() as u64);
+        bar.set_style(
+            ProgressStyle::with_template(
+                "Trimming\t{elapsed_precise} {msg} {bar:40.cyan/blue} {pos:>7}/{len:7} {percent}%",
+            )
+            .unwrap(),
+        );
+
+        // Use a Mutex to safely collect recordings in parallel
+        let recordings = Arc::new(Mutex::new(Vec::new()));
+
+        // Parallel processing of recordings
+        self.recordings.par_iter().for_each(|recording| {
+            // You should acquire the samples inside the scope of the for_each
+            let samples = self
+                .get_samples_by_recording(recording)
+                .unwrap_or_else(|_| vec![]);
+            if samples.len() >= min_samp_count {
+                let mut recordings_guard = recordings.lock().unwrap();
+                recordings_guard.push(recording.clone());
+            }
+            bar.inc(1); // Update progress bar
+        });
+
+        bar.finish();
+
+        // Replace recordings with the collected results
+        self.recordings = Arc::try_unwrap(recordings)
+            .map_err(|_| SmfError::InvalidDataType("".to_string()))?
+            .into_inner()
+            .unwrap();
+        Ok(())
     }
 
     pub fn get_recordings(&self) -> Vec<recording::SmfRecording> {
@@ -161,14 +226,14 @@ impl SigMF {
 
     pub fn get_recording_by_name(&self, name: &str) -> Option<recording::SmfRecording> {
         self.recordings
-            .iter()
-            .find(|recording| recording.get_name() == name)
+            .par_iter()
+            .find_any(|recording| recording.get_name() == name)
             .cloned()
     }
 
     pub fn get_names(&self) -> Vec<String> {
         self.recordings
-            .iter()
+            .par_iter()
             .map(|recording| recording.get_name())
             .collect()
     }
@@ -433,6 +498,7 @@ pub enum SmfError {
     InvalidDataType(String),
     NotFound(String),
     HashMismatch(String),
+    LockError(String),
 }
 
 impl From<std::io::Error> for SmfError {
@@ -455,6 +521,7 @@ impl std::fmt::Display for SmfError {
             SmfError::InvalidDataType(err) => write!(f, "Invalid data type{}", err),
             SmfError::NotFound(err) => write!(f, "Not found: {}", err),
             SmfError::HashMismatch(err) => write!(f, "Hash mismatch: {}", err),
+            SmfError::LockError(err) => write!(f, "Lock error: {}", err),
         }
     }
 }
@@ -467,6 +534,7 @@ impl Error for SmfError {
             SmfError::InvalidDataType(_err) => None,
             SmfError::NotFound(_err) => None,
             SmfError::HashMismatch(_err) => None,
+            SmfError::LockError(_err) => None,
         }
     }
 }

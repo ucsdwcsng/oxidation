@@ -50,6 +50,7 @@ pub fn handle_complex_bytes(data: &[u8], byte_type: global::SmfDataTypeByte) -> 
         }
     }
 }
+
 pub fn handle_complex_data(
     data: &[u8],
     dtype: global::SmfDataTypeDtype,
@@ -298,6 +299,7 @@ pub fn handle_complex_data(
         }
     }
 }
+
 pub fn handle_real_bytes(data: &[u8], byte_type: global::SmfDataTypeByte) -> Vec<DataSample> {
     match byte_type {
         global::SmfDataTypeByte::U8 => {
@@ -322,6 +324,7 @@ pub fn handle_real_bytes(data: &[u8], byte_type: global::SmfDataTypeByte) -> Vec
         }
     }
 }
+
 pub fn handle_real_data(
     data: &[u8],
     dtype: global::SmfDataTypeDtype,
@@ -378,3 +381,4 @@ pub fn handle_real_data(
         }
     }
 }
+
