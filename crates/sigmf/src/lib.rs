@@ -173,6 +173,13 @@ impl SigMF {
             .collect()
     }
 
+    pub fn get_meta_by_recording(
+        &self,
+        recording: &recording::SmfRecording,
+    ) -> Result<meta::SmfMeta, SmfError> {
+        self.get_meta_by_name(&recording.get_name())
+    }
+
     pub fn get_meta_by_name(&self, name: &str) -> Result<meta::SmfMeta, SmfError> {
         // Get the recording by name
         match (&self).get_recording_by_name(name) {
@@ -193,25 +200,52 @@ impl SigMF {
     pub fn get_samples_by_recording(
         &self,
         recording: &recording::SmfRecording,
-    ) -> Result<Vec<u8>, SmfError> {
+    ) -> Result<utils::data::SampleData, SmfError> {
         self.get_samples_by_name(&recording.get_name())
     }
 
-    pub fn get_samples_by_name(&self, name: &str) -> Result<Vec<u8>, SmfError> {
+    pub fn get_samples_by_name(&self, name: &str) -> Result<utils::data::SampleData, SmfError> {
         let meta: meta::SmfMeta = self.get_meta_by_name(&name)?;
-        match meta.get_sha512() {
-            Some(hash) => {
-                println!("hash: {:?}", hash);
-                println!("name: {:?}", name);
-                match &self.archive_path {
-                    Some(path) => {
-                        let (data, _) = utils::file::get_bytes_in_archive_from_hash(path, &hash)?;
-                        Ok(data)
-                    }
-                    None => Err(SmfError::NotFound("Path is None".to_string())),
-                }
+
+        let data = match &self.archive_path {
+            Some(path) => {
+                let (data, _) =
+                    utils::file::get_bytes_in_archive_from_name_ext(path, name, "sigmf-data")?;
+                Ok(data)
             }
-            None => return Err(SmfError::NotFound("Hash is None".to_string())),
+            None => Err(SmfError::NotFound("Path is None".to_string())),
+        }?;
+
+        println!("data length: {:?}", data.len());
+
+        let data_type = meta.get_datatype();
+        match data_type.get_domain() {
+            global::SmfDataTypeDomain::Complex => match data_type.get_byte() {
+                Some(byte_type) => Ok(utils::data::handle_complex_bytes(&data[..], byte_type)),
+                None => {
+                    // let (data_type.
+                    if let (Some(dtype), Some(endian)) =
+                        (data_type.get_dtype(), data_type.get_endian())
+                    {
+                        Ok(utils::data::handle_complex_data(&data[..], dtype, endian))
+                    } else {
+                        Err(SmfError::InvalidDataType("Invalid data type".to_string()))
+                    }
+                }
+            },
+            global::SmfDataTypeDomain::Real => match data_type.get_byte() {
+                Some(byte_type) => Ok(utils::data::handle_real_bytes(&data[..], byte_type)),
+                None => {
+                    // let (data_type.
+                    if let (Some(dtype), Some(endian)) =
+                        (data_type.get_dtype(), data_type.get_endian())
+                    {
+                        Ok(utils::data::handle_real_data(&data[..], dtype, endian))
+                    } else {
+                        Err(SmfError::InvalidDataType("Invalid data type".to_string()))
+                    }
+                }
+            },
         }
     }
 }

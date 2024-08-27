@@ -8,11 +8,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let recordings = sigmf.get_recordings();
     for recording in &recordings {
+        println!("recording: {:?}", recording);
+        let meta = match sigmf.get_meta_by_recording(&recording) {
+            Ok(meta) => meta,
+            Err(e) => {
+                println!("Error: {}", e);
+                continue;
+            }
+        };
+        println!("meta: {:?}", meta);
         let samples = match sigmf.get_samples_by_recording(&recording) {
             Ok(samples) => samples,
             Err(e) => {
-                eprintln!("Error: {}", e);
-                return Ok(());
+                println!("Error: {}", e);
+                continue;
             }
         };
         println!("samples: {:?}", samples);
