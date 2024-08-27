@@ -127,11 +127,9 @@ impl SigMF {
                 .unwrap(),
             );
 
-            // Create the tar file
             let file = File::create(save_path)?;
             let new_archive = Arc::new(Mutex::new(tar::Builder::new(file)));
 
-            // Use par_iter for parallel processing of recordings
             self.recordings.par_iter().try_for_each(|recording| {
                 bar.inc(1);
                 let mut new_archive_lock = new_archive
@@ -177,6 +175,12 @@ impl SigMF {
 
     /// Trim the [`SigMF`] object
     /// Removes all recordings that have less than min_samp_count samples
+    ///
+    /// # Arguments
+    /// * `min_samp_count` - An integer that holds the minimum number of samples
+    ///
+    /// # Returns
+    /// A unit if successful, or a SmfError if an error occurred
     pub fn trim(&mut self, min_samp_count: usize) -> Result<(), SmfError> {
         let bar = ProgressBar::new(self.recordings.len() as u64);
         bar.set_style(
@@ -212,18 +216,39 @@ impl SigMF {
         Ok(())
     }
 
+    /// Get the recordings of the [`SigMF`] object
+    ///
+    /// # Returns
+    /// A vector of [`recording::SmfRecording`] objects
     pub fn get_recordings(&self) -> Vec<recording::SmfRecording> {
         self.recordings.clone()
     }
 
+    /// get the collection of the [`SigMF`] object
+    ///
+    /// # Returns
+    /// An optional [`collection::SmfCollection`] object
     pub fn get_collection(&self) -> Option<collection::SmfCollection> {
         self.collection.clone()
     }
 
+    /// Get the path of the [`SigMF`] object
+    ///
+    /// # Returns
+    /// An optional string slice that holds the path to the .sigmf file
     pub fn get_path(&self) -> Option<String> {
         self.archive_path.clone()
     }
 
+    /// Get a [`SmfRecording`] by name
+    ///
+    /// # Arguments
+    /// * `name` - A string slice that holds the name of the [`SmfRecording`]
+    ///
+    /// # Returns
+    /// An optional [`SmfRecording`] object
+    ///
+    /// [`SmfRecording`]: crate::recording::SmfRecording
     pub fn get_recording_by_name(&self, name: &str) -> Option<recording::SmfRecording> {
         self.recordings
             .par_iter()
@@ -231,6 +256,12 @@ impl SigMF {
             .cloned()
     }
 
+    /// Get the names of the [`SmfRecording`]s
+    ///
+    /// # Returns
+    /// A vector of string slices that hold the names of the [`SmfRecording`]s
+    ///
+    /// [`SmfRecording`]: crate::recording::SmfRecording
     pub fn get_names(&self) -> Vec<String> {
         self.recordings
             .par_iter()
@@ -238,6 +269,13 @@ impl SigMF {
             .collect()
     }
 
+    /// Get the [`SmfMeta`] from a recording
+    ///
+    /// # Arguments
+    /// * `recording` - A [`SmfRecording`] object
+    ///
+    /// [`SmfMeta`]: crate::meta::SmfMeta
+    /// [`SmfRecording`]: crate::recording::SmfRecording
     pub fn get_meta_by_recording(
         &self,
         recording: &recording::SmfRecording,
@@ -245,6 +283,17 @@ impl SigMF {
         self.get_meta_by_name(&recording.get_name())
     }
 
+    /// Get the [`SmfMeta`] from a [`SmfRecording`] by name
+    ///
+    /// # Arguments
+    /// * `name` - A string slice that holds the name of the [`SmfRecording`]
+    ///
+    /// # Returns
+    /// A Result object with the [`SmfMeta`] object if successful, or a [`SmfError`] if an error occurred
+    ///
+    /// [`SmfMeta`]: crate::meta::SmfMeta
+    /// [`SmfRecording`]: crate::recording::SmfRecording
+    /// [`SmfError`]: crate::SmfError
     pub fn get_meta_by_name(&self, name: &str) -> Result<meta::SmfMeta, SmfError> {
         // Get the recording by name
         match (&self).get_recording_by_name(name) {
@@ -262,6 +311,16 @@ impl SigMF {
         }
     }
 
+    /// Get the samples from a [`SmfRecording`]
+    ///
+    /// # Arguments
+    /// * `recording` - A [`SmfRecording`] object
+    ///
+    /// # Returns
+    /// A vector of [`DataSample`] objects
+    ///
+    /// [`SmfRecording`]: crate::recording::SmfRecording
+    /// [`DataSample`]: crate::utils::data::DataSample
     pub fn get_samples_by_recording(
         &self,
         recording: &recording::SmfRecording,
@@ -269,6 +328,16 @@ impl SigMF {
         self.get_samples_by_name(&recording.get_name())
     }
 
+    /// Get the samples from a [`SmfRecording`] by name
+    ///
+    /// # Arguments
+    /// * `name` - A string slice that holds the name of the [`SmfRecording`]
+    ///
+    /// # Returns
+    /// A vector of [`DataSample`] objects
+    ///
+    /// [`SmfRecording`]: crate::recording::SmfRecording
+    /// [`DataSample`]: crate::utils::data::DataSample
     pub fn get_samples_by_name(&self, name: &str) -> Result<Vec<DataSample>, SmfError> {
         let meta: meta::SmfMeta = self.get_meta_by_name(&name)?;
 
