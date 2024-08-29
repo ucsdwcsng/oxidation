@@ -5,15 +5,12 @@ use tar::{Archive, Entry, Header};
 use users::{get_current_gid, get_current_uid, get_user_by_uid};
 
 pub fn get_root_dir() -> String {
-    let mut path = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    path.push_str("/../..");
-    let canonicalized = std::fs::canonicalize(&path).unwrap();
-    canonicalized.to_str().unwrap().to_string()
+    "/home/groberts/dev/github/oxidation".to_string()
 }
 
 pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SmfError> {
     let mut header = Header::new_gnu();
-    let username = get_user_by_uid(get_current_uid())
+    let _username = get_user_by_uid(get_current_uid())
         .unwrap()
         .name()
         .to_str()
@@ -25,11 +22,11 @@ pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SmfE
         .as_secs();
     header.set_size(meta_bytes.len() as u64);
     header.set_path(format!("{}.sigmf-meta", filename))?;
-    header.set_mode(0o644);
+    header.set_mode(0o777);
     header.set_gid(get_current_gid() as u64);
     header.set_uid(get_current_uid() as u64);
     header.set_mtime(mtime);
-    header.set_username(&username)?;
+    // header.set_username(&username)?;
     header.set_entry_type(tar::EntryType::Regular);
     header.set_cksum();
     Ok(header)
@@ -37,7 +34,7 @@ pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SmfE
 
 pub fn get_data_header(filename: &str, data_bytes: &[u8]) -> Result<Header, SmfError> {
     let mut header = Header::new_gnu();
-    let username = get_user_by_uid(get_current_uid())
+    let _username = get_user_by_uid(get_current_uid())
         .unwrap()
         .name()
         .to_str()
@@ -49,11 +46,11 @@ pub fn get_data_header(filename: &str, data_bytes: &[u8]) -> Result<Header, SmfE
         .as_secs();
     header.set_size(data_bytes.len() as u64);
     header.set_path(format!("{}.sigmf-data", filename))?;
-    header.set_mode(0o644);
+    header.set_mode(0o777);
     header.set_gid(get_current_gid() as u64);
     header.set_uid(get_current_uid() as u64);
     header.set_mtime(mtime);
-    header.set_username(&username)?;
+    // header.set_username(&username)?;
     header.set_entry_type(tar::EntryType::Regular);
     header.set_cksum();
     Ok(header)
@@ -61,7 +58,7 @@ pub fn get_data_header(filename: &str, data_bytes: &[u8]) -> Result<Header, SmfE
 
 pub fn get_collection_header(filename: &str, collection_bytes: &[u8]) -> Result<Header, SmfError> {
     let mut header = Header::new_gnu();
-    let username = get_user_by_uid(get_current_uid())
+    let _username = get_user_by_uid(get_current_uid())
         .unwrap()
         .name()
         .to_str()
@@ -73,11 +70,11 @@ pub fn get_collection_header(filename: &str, collection_bytes: &[u8]) -> Result<
         .as_secs();
     header.set_size(collection_bytes.len() as u64);
     header.set_path(format!("{}.sigmf-collection", filename))?;
-    header.set_mode(0o644);
+    header.set_mode(0o777);
     header.set_gid(get_current_gid() as u64);
     header.set_uid(get_current_uid() as u64);
     header.set_mtime(mtime);
-    header.set_username(&username)?;
+    // header.set_username(&username)?;
     header.set_entry_type(tar::EntryType::Regular);
     header.set_cksum();
     Ok(header)
