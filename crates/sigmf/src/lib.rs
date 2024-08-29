@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use tar::Archive;
 use utils::data::DataSample;
 
+pub mod annotation;
 pub mod capture;
 pub mod collection;
 pub mod global;
