@@ -5,10 +5,7 @@ use tar::{Archive, Entry, Header};
 use users::{get_current_gid, get_current_uid, get_user_by_uid};
 
 pub fn get_root_dir() -> String {
-    let mut path = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    path.push_str("/../..");
-    let canonicalized = std::fs::canonicalize(&path).unwrap();
-    canonicalized.to_str().unwrap().to_string()
+    "/home/groberts/dev/github/oxidation".to_string()
 }
 
 pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SmfError> {

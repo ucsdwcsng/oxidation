@@ -2,8 +2,11 @@ use core::fmt;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use serde_json;
+use std::env;
 use std::error::Error;
 use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tar::Archive;
 use utils::data::DataSample;
@@ -15,6 +18,9 @@ pub mod global;
 pub mod meta;
 pub mod recording;
 pub mod utils;
+
+use crate::recording::SmfRecording;
+use crate::utils::hash::hash_from_path;
 
 pub type Number = f64;
 pub type Integer = u64;
@@ -67,8 +73,8 @@ impl SigMF {
     pub fn save(&self, save_path: &str) -> Result<(), SmfError> {
         if let Some(archive_path) = &self.archive_path {
             assert!(
-                archive_path.ends_with(".sigmf"),
-                "File must have .sigmf extension"
+                archive_path.ends_with(".sigmf") || archive_path.ends_with(".sigmf-meta"),
+                "File must have .sigmf or .sigmf-meta extension"
             );
 
             let bar = ProgressBar::new(self.recordings.len() as u64);
@@ -298,7 +304,19 @@ impl SigMF {
                 let meta: meta::SmfMeta = serde_json::from_slice(&buffer)?;
                 Ok(meta)
             }
-            None => return Err(SmfError::NotFound("Path is None".to_string())),
+            None => match env::current_dir() {
+                Ok(path) => {
+                    let file_path =
+                        format!("{}/{}.sigmf-meta", path.display(), recording.get_name());
+                    let file = File::open(file_path)?;
+                    let meta: meta::SmfMeta = serde_json::from_reader(file)?;
+                    Ok(meta)
+                }
+                Err(e) => {
+                    eprintln!("Error getting current directory: {}", e);
+                    Err(SmfError::NotFound("Path is None".to_string()))
+                }
+            },
         }
     }
 
@@ -349,40 +367,47 @@ impl SigMF {
     /// [`SmfRecording`]: crate::recording::SmfRecording
     /// [`DataSample`]: crate::utils::data::DataSample
     pub fn get_samples_from_name(&self, name: &str) -> Result<Vec<DataSample>, SmfError> {
-        let meta: meta::SmfMeta = self.get_meta_from_name(&name)?;
-
-        let data = match &self.archive_path {
+        let meta: meta::SmfMeta = self.get_meta_from_name(name)?;
+        let data: Vec<u8> = match &self.archive_path {
             Some(path) => {
                 let (data, _) =
                     utils::file::get_bytes_in_archive_from_name_ext(path, name, "sigmf-data")?;
-                Ok(data)
+                data
             }
-            None => Err(SmfError::NotFound("Path is None".to_string())),
-        }?;
+            None => {
+                let current_dir = env::current_dir().map_err(|e| {
+                    eprintln!("Error getting current directory: {}", e);
+                    SmfError::NotFound("Path is None".to_string())
+                })?;
+                let file_path = current_dir.join(format!("{}.sigmf-data", name));
+                let mut file = File::open(&file_path)?;
+                let mut data = Vec::new();
+                file.read_to_end(&mut data)?; // Read entire file into buffer
+                data
+            }
+        };
 
         let data_type = meta.get_datatype();
         match data_type.get_domain() {
             global::SmfDataTypeDomain::Complex => match data_type.get_byte() {
-                Some(byte_type) => Ok(utils::data::handle_complex_bytes(&data[..], byte_type)),
+                Some(byte_type) => Ok(utils::data::handle_complex_bytes(&data, byte_type)),
                 None => {
-                    // let (data_type.
                     if let (Some(dtype), Some(endian)) =
                         (data_type.get_dtype(), data_type.get_endian())
                     {
-                        Ok(utils::data::handle_complex_data(&data[..], dtype, endian))
+                        Ok(utils::data::handle_complex_data(&data, dtype, endian))
                     } else {
                         Err(SmfError::InvalidDataType("Invalid data type".to_string()))
                     }
                 }
             },
             global::SmfDataTypeDomain::Real => match data_type.get_byte() {
-                Some(byte_type) => Ok(utils::data::handle_real_bytes(&data[..], byte_type)),
+                Some(byte_type) => Ok(utils::data::handle_real_bytes(&data, byte_type)),
                 None => {
-                    // let (data_type.
                     if let (Some(dtype), Some(endian)) =
                         (data_type.get_dtype(), data_type.get_endian())
                     {
-                        Ok(utils::data::handle_real_data(&data[..], dtype, endian))
+                        Ok(utils::data::handle_real_data(&data, dtype, endian))
                     } else {
                         Err(SmfError::InvalidDataType("Invalid data type".to_string()))
                     }
@@ -417,6 +442,52 @@ impl Builder {
         Builder {
             tar_builder: tar::Builder::new(File::create(path.clone()).unwrap()),
             path,
+        }
+    }
+
+    /// Create a new [`SigMF`] object from a data or meta file.
+    ///
+    /// # Arguments
+    /// * `filepath` - A string slice that holds the path to the .sigmf file
+    ///
+    /// # Returns
+    /// A Result object with the SigMF object if successful,
+    /// or a SmfError if an error occurred
+    pub fn from_recording(filepath: &String) -> Result<SigMF, Box<dyn std::error::Error>> {
+        if filepath.contains(".sigmf-data") {
+            let base_name_fp = filepath.replace(".sigmf-data", "");
+            let base_name = Path::new(&base_name_fp)
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap();
+
+            let meta_path = format!("{}.sigmf-meta", base_name_fp);
+            let hash = hash_from_path(&meta_path)?;
+
+            let recording = SmfRecording::new(&base_name, &hash);
+
+            let mut sigmf = SigMF::default();
+            sigmf.add_recording(recording);
+
+            Ok(sigmf)
+        } else if filepath.contains(".sigmf-meta") {
+            let base_name_fp = filepath.replace(".sigmf-meta", "");
+            let base_name = Path::new(&base_name_fp)
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap();
+
+            let hash = hash_from_path(filepath)?;
+            let recording = SmfRecording::new(&base_name, &hash);
+
+            let mut sigmf = SigMF::default();
+            sigmf.add_recording(recording);
+
+            Ok(sigmf)
+        } else {
+            Err(format!("Invalid file path: {}", filepath).into())
         }
     }
 
