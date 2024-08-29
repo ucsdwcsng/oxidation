@@ -20,12 +20,13 @@ pub type Integer = u64;
 
 const MAX_META_SIZE: usize = 1_000_000;
 
-/// A SigMF object that holds the collection, recordings, and path of a .sigmf file
+/// A [`SigMF`] object that holds the collection, recordings, and
+/// path of the open .sigmf file
 ///
 /// # Fields
 /// * `collection` - An optional [`collection::SmfCollection`] object
 /// * `recordings` - A vector of [`recording::SmfRecording`] objects
-/// * `path` - An optional string slice that holds the path to the .sigmf file
+/// * `path` - An optional string slice that holds the path to the open .sigmf file
 #[derive(Debug, Default)]
 pub struct SigMF {
     pub collection: Option<collection::SmfCollection>,
@@ -34,6 +35,8 @@ pub struct SigMF {
 }
 
 impl SigMF {
+    // ---------------------------------------- Constructors ---------------------------------------- //
+
     /// Create a new [`SigMF`] object using an optional path
     ///
     /// # Arguments
@@ -51,59 +54,7 @@ impl SigMF {
         }
     }
 
-    /// Set the recordings of the [`SigMF`] object
-    ///
-    /// # Arguments
-    /// * `recordings` - A vector of [`recording::SmfRecording`] objects
-    ///
-    /// [`SigMF`]: crate::SigMF
-    /// [`recording::SmfRecording`]: crate::recording::SmfRecording
-    pub fn set_recordings(&mut self, recordings: Vec<recording::SmfRecording>) {
-        self.recordings = recordings;
-    }
-
-    /// Set the collection of the [`SigMF`] object
-    ///
-    /// # Arguments
-    /// * `collection` - A [`collection::SmfCollection`] object
-    ///
-    /// [`SigMF`]: crate::SigMF
-    /// [`collection::SmfCollection`]: crate::collection::SmfCollection
-    pub fn set_collection(&mut self, collection: collection::SmfCollection) {
-        self.collection = Some(collection);
-    }
-
-    /// Set the path of the [`SigMF`] object
-    ///
-    /// # Arguments
-    /// * `path` - A string slice that holds the path to the .sigmf file
-    ///
-    /// [`SigMF`]: crate::SigMF
-    pub fn set_path(&mut self, path: &str) {
-        self.archive_path = Some(path.to_string());
-    }
-
-    /// Add a recording to the [`SigMF`] object
-    ///
-    /// # Arguments
-    /// * `recording` - A [`recording::SmfRecording`] object
-    ///
-    /// [`SigMF`]: crate::SigMF
-    /// [`recording::SmfRecording`]: crate::recording::SmfRecording
-    pub fn add_recording(&mut self, recording: recording::SmfRecording) {
-        self.recordings.push(recording);
-    }
-
-    /// Add a collection to the [`SigMF`] object
-    ///
-    /// # Arguments
-    /// * `collection` - A [`collection::SmfCollection`] object
-    ///
-    /// [`SigMF`]: crate::SigMF
-    /// [`collection::SmfCollection`]: crate::collection::SmfCollection
-    pub fn add_collection(&mut self, collection: collection::SmfCollection) {
-        self.collection = Some(collection);
-    }
+    // ------------------------------------------- Methods ------------------------------------------ //
 
     /// Save the [`SigMF`] object to a .sigmf file
     ///
@@ -197,7 +148,7 @@ impl SigMF {
         self.recordings.par_iter().for_each(|recording| {
             // You should acquire the samples inside the scope of the for_each
             let samples = self
-                .get_samples_by_recording(recording)
+                .get_samples_from_recording(recording)
                 .unwrap_or_else(|_| vec![]);
             if samples.len() >= min_samp_count {
                 let mut recordings_guard = recordings.lock().unwrap();
@@ -215,6 +166,64 @@ impl SigMF {
             .unwrap();
         Ok(())
     }
+
+    // ------------------------------------------- Setters ------------------------------------------ //
+
+    /// Set the recordings of the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `recordings` - A vector of [`recording::SmfRecording`] objects
+    ///
+    /// [`SigMF`]: crate::SigMF
+    /// [`recording::SmfRecording`]: crate::recording::SmfRecording
+    pub fn set_recordings(&mut self, recordings: Vec<recording::SmfRecording>) {
+        self.recordings = recordings;
+    }
+
+    /// Set the collection of the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `collection` - A [`collection::SmfCollection`] object
+    ///
+    /// [`SigMF`]: crate::SigMF
+    /// [`collection::SmfCollection`]: crate::collection::SmfCollection
+    pub fn set_collection(&mut self, collection: collection::SmfCollection) {
+        self.collection = Some(collection);
+    }
+
+    /// Set the path of the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `path` - A string slice that holds the path to the .sigmf file
+    ///
+    /// [`SigMF`]: crate::SigMF
+    pub fn set_path(&mut self, path: &str) {
+        self.archive_path = Some(path.to_string());
+    }
+
+    /// Add a recording to the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `recording` - A [`recording::SmfRecording`] object
+    ///
+    /// [`SigMF`]: crate::SigMF
+    /// [`recording::SmfRecording`]: crate::recording::SmfRecording
+    pub fn add_recording(&mut self, recording: recording::SmfRecording) {
+        self.recordings.push(recording);
+    }
+
+    /// Add a collection to the [`SigMF`] object
+    ///
+    /// # Arguments
+    /// * `collection` - A [`collection::SmfCollection`] object
+    ///
+    /// [`SigMF`]: crate::SigMF
+    /// [`collection::SmfCollection`]: crate::collection::SmfCollection
+    pub fn add_collection(&mut self, collection: collection::SmfCollection) {
+        self.collection = Some(collection);
+    }
+
+    // ------------------------------------------- Getters ------------------------------------------ //
 
     /// Get the recordings of the [`SigMF`] object
     ///
@@ -240,22 +249,6 @@ impl SigMF {
         self.archive_path.clone()
     }
 
-    /// Get a [`SmfRecording`] by name
-    ///
-    /// # Arguments
-    /// * `name` - A string slice that holds the name of the [`SmfRecording`]
-    ///
-    /// # Returns
-    /// An optional [`SmfRecording`] object
-    ///
-    /// [`SmfRecording`]: crate::recording::SmfRecording
-    pub fn get_recording_by_name(&self, name: &str) -> Option<recording::SmfRecording> {
-        self.recordings
-            .par_iter()
-            .find_any(|recording| recording.get_name() == name)
-            .cloned()
-    }
-
     /// Get the names of the [`SmfRecording`]s
     ///
     /// # Returns
@@ -269,6 +262,22 @@ impl SigMF {
             .collect()
     }
 
+    /// Get a [`SmfRecording`] by name
+    ///
+    /// # Arguments
+    /// * `name` - A string slice that holds the name of the [`SmfRecording`]
+    ///
+    /// # Returns
+    /// An optional [`SmfRecording`] object
+    ///
+    /// [`SmfRecording`]: crate::recording::SmfRecording
+    pub fn get_recording_from_name(&self, name: &str) -> Option<recording::SmfRecording> {
+        self.recordings
+            .par_iter()
+            .find_any(|recording| recording.get_name() == name)
+            .cloned()
+    }
+
     /// Get the [`SmfMeta`] from a recording
     ///
     /// # Arguments
@@ -276,11 +285,20 @@ impl SigMF {
     ///
     /// [`SmfMeta`]: crate::meta::SmfMeta
     /// [`SmfRecording`]: crate::recording::SmfRecording
-    pub fn get_meta_by_recording(
+    pub fn get_meta_from_recording(
         &self,
         recording: &recording::SmfRecording,
     ) -> Result<meta::SmfMeta, SmfError> {
-        self.get_meta_by_name(&recording.get_name())
+        match &self.archive_path {
+            Some(path) => {
+                // Get the meta data from the recording
+                let (buffer, _) =
+                    utils::file::get_bytes_in_archive_from_hash(path, &recording.get_hash())?;
+                let meta: meta::SmfMeta = serde_json::from_slice(&buffer)?;
+                Ok(meta)
+            }
+            None => return Err(SmfError::NotFound("Path is None".to_string())),
+        }
     }
 
     /// Get the [`SmfMeta`] from a [`SmfRecording`] by name
@@ -294,19 +312,10 @@ impl SigMF {
     /// [`SmfMeta`]: crate::meta::SmfMeta
     /// [`SmfRecording`]: crate::recording::SmfRecording
     /// [`SmfError`]: crate::SmfError
-    pub fn get_meta_by_name(&self, name: &str) -> Result<meta::SmfMeta, SmfError> {
+    pub fn get_meta_from_name(&self, name: &str) -> Result<meta::SmfMeta, SmfError> {
         // Get the recording by name
-        match (&self).get_recording_by_name(name) {
-            Some(recording) => match &self.archive_path {
-                Some(path) => {
-                    // Get the meta data from the recording
-                    let (buffer, _) =
-                        utils::file::get_bytes_in_archive_from_hash(path, &recording.get_hash())?;
-                    let meta: meta::SmfMeta = serde_json::from_slice(&buffer)?;
-                    Ok(meta)
-                }
-                None => return Err(SmfError::NotFound("Path is None".to_string())),
-            },
+        match (&self).get_recording_from_name(name) {
+            Some(recording) => self.get_meta_from_recording(&recording),
             None => Err(SmfError::NotFound("Recording is None".to_string())),
         }
     }
@@ -321,11 +330,11 @@ impl SigMF {
     ///
     /// [`SmfRecording`]: crate::recording::SmfRecording
     /// [`DataSample`]: crate::utils::data::DataSample
-    pub fn get_samples_by_recording(
+    pub fn get_samples_from_recording(
         &self,
         recording: &recording::SmfRecording,
     ) -> Result<Vec<DataSample>, SmfError> {
-        self.get_samples_by_name(&recording.get_name())
+        self.get_samples_from_name(&recording.get_name())
     }
 
     /// Get the samples from a [`SmfRecording`] by name
@@ -338,8 +347,8 @@ impl SigMF {
     ///
     /// [`SmfRecording`]: crate::recording::SmfRecording
     /// [`DataSample`]: crate::utils::data::DataSample
-    pub fn get_samples_by_name(&self, name: &str) -> Result<Vec<DataSample>, SmfError> {
-        let meta: meta::SmfMeta = self.get_meta_by_name(&name)?;
+    pub fn get_samples_from_name(&self, name: &str) -> Result<Vec<DataSample>, SmfError> {
+        let meta: meta::SmfMeta = self.get_meta_from_name(&name)?;
 
         let data = match &self.archive_path {
             Some(path) => {

@@ -54,6 +54,162 @@ pub struct SmfGlobal {
     pub trailing_bytes: Option<Integer>,
 }
 
+impl SmfGlobal {
+    // Setters
+    pub fn set_version(&mut self, version: String) {
+        self.version = version;
+    }
+
+    pub fn set_datatype(&mut self, datatype: SmfDataType) {
+        self.datatype = datatype;
+    }
+
+    pub fn set_sample_rate(&mut self, sample_rate: Number) {
+        self.sample_rate = Some(sample_rate);
+    }
+
+    pub fn set_author(&mut self, author: String) {
+        self.author = Some(author);
+    }
+
+    pub fn set_collection(&mut self, collection_str: String) {
+        self.collection = Some(collection_str);
+    }
+
+    pub fn set_data_doi(&mut self, data_doi: String) {
+        self.data_doi = Some(data_doi);
+    }
+
+    pub fn set_description(&mut self, description: String) {
+        self.description = Some(description);
+    }
+
+    pub fn set_hw(&mut self, hw: String) {
+        self.hw = Some(hw);
+    }
+
+    pub fn set_license(&mut self, license: String) {
+        self.license = Some(license);
+    }
+
+    pub fn set_metadata_only(&mut self, metadata_only: bool) {
+        self.metadata_only = Some(metadata_only);
+    }
+
+    pub fn set_meta_doi(&mut self, meta_doi: String) {
+        self.meta_doi = Some(meta_doi);
+    }
+
+    pub fn set_num_channels(&mut self, num_channels: Integer) {
+        self.num_channels = Some(num_channels);
+    }
+
+    pub fn set_offset(&mut self, offset: Integer) {
+        self.offset = Some(offset);
+    }
+
+    pub fn set_recorder(&mut self, recorder: String) {
+        self.recorder = Some(recorder);
+    }
+
+    pub fn set_sha512(&mut self, hash: String) {
+        self.sha512 = Some(hash);
+    }
+
+    pub fn set_geolocation(&mut self, geolocation: GeoJson) {
+        self.geolocation = Some(geolocation);
+    }
+
+    pub fn set_extensions(&mut self, extensions: Vec<SmfExtension>) {
+        self.extensions = Some(extensions);
+    }
+
+    pub fn set_dataset(&mut self, dataset: String) {
+        self.dataset = Some(dataset);
+    }
+
+    pub fn set_trailing_bytes(&mut self, trailing_bytes: Integer) {
+        self.trailing_bytes = Some(trailing_bytes);
+    }
+
+    // Getters
+    pub fn get_version(&self) -> String {
+        self.version.clone()
+    }
+
+    pub fn get_datatype(&self) -> SmfDataType {
+        self.datatype.clone()
+    }
+
+    pub fn get_sample_rate(&self) -> Option<Number> {
+        self.sample_rate
+    }
+
+    pub fn get_author(&self) -> Option<String> {
+        self.author.clone()
+    }
+
+    pub fn get_collection(&self) -> Option<String> {
+        self.collection.clone()
+    }
+
+    pub fn get_data_doi(&self) -> Option<String> {
+        self.data_doi.clone()
+    }
+
+    pub fn get_description(&self) -> Option<String> {
+        self.description.clone()
+    }
+
+    pub fn get_hw(&self) -> Option<String> {
+        self.hw.clone()
+    }
+
+    pub fn get_license(&self) -> Option<String> {
+        self.license.clone()
+    }
+
+    pub fn get_metadata_only(&self) -> Option<bool> {
+        self.metadata_only
+    }
+
+    pub fn get_meta_doi(&self) -> Option<String> {
+        self.meta_doi.clone()
+    }
+
+    pub fn get_num_channels(&self) -> Option<Integer> {
+        self.num_channels
+    }
+
+    pub fn get_offset(&self) -> Option<Integer> {
+        self.offset
+    }
+
+    pub fn get_recorder(&self) -> Option<String> {
+        self.recorder.clone()
+    }
+
+    pub fn get_sha512(&self) -> Option<String> {
+        self.sha512.clone()
+    }
+
+    pub fn get_geolocation(&self) -> Option<GeoJson> {
+        self.geolocation.clone()
+    }
+
+    pub fn get_extensions(&self) -> Option<Vec<SmfExtension>> {
+        self.extensions.clone()
+    }
+
+    pub fn get_dataset(&self) -> Option<String> {
+        self.dataset.clone()
+    }
+
+    pub fn get_trailing_bytes(&self) -> Option<Integer> {
+        self.trailing_bytes
+    }
+}
+
 impl Serialize for SmfGlobal {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
