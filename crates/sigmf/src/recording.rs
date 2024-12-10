@@ -1,4 +1,3 @@
-use crate::utils::hash::hash_from_path;
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -13,17 +12,6 @@ impl SmfRecording {
             name: name.to_string(),
             hash: hash.to_string(),
         }
-    }
-
-    pub fn from_path(metafile_path: &String) -> Result<Self, Box<dyn std::error::Error>> {
-        let hash_str = hash_from_path(&metafile_path)?;
-
-        let recording_name = &metafile_path.replace(".sigmf-meta", "");
-        let recording = SmfRecording {
-            name: recording_name.to_string(),
-            hash: hash_str,
-        };
-        Ok(recording)
     }
 
     pub fn get_name(&self) -> String {
