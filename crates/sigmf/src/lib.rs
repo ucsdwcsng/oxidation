@@ -215,8 +215,9 @@ impl Builder {
             // remove file if it exists
             std::fs::remove_file(&path).unwrap();
         }
+        let file = File::create(&path).unwrap();
         Builder {
-            tar_builder: tar::Builder::new(File::create(path.clone()).unwrap()),
+            tar_builder: tar::Builder::new(file),
             path,
         }
     }
