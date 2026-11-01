@@ -1,0 +1,24 @@
+[package]
+name = "wcsng-sigmf-derive"
+description = "Derive macros for typed SigMF metadata extensions; use through the `derive` feature of `wcsng-sigmf`"
+documentation = "https://docs.rs/wcsng-sigmf-derive"
+readme = "README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["sigmf", "sdr", "derive", "proc-macro"]
+categories = ["encoding", "science"]
+include = ["/src/**", "/README.md", "/LICENSE"]
+
+[lib]
+name = "sigmf_derive"
+proc-macro = true
+
+[dependencies]
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true

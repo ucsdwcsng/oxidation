@@ -1,43 +1,99 @@
 [workspace]
-resolver = "2"
-members = ["crates/*", "."]
-
-[package]
-name = "oxidation"
-version = "0.1.0"
-publish = false
-edition.workspace = true
-rust-version.workspace = true
-description = "Utility crates from WCSNG at UC San Diego"
-license.workspace = true
-repository.workspace = true
-readme.workspace = true
-include = ["src/**", "README.md", "LICENSE"]
+resolver = "3"
+members = [".", "sigmf-derive"]
 
 [workspace.package]
-edition = "2021"
+version = "0.1.1"
+edition = "2024"
 rust-version = "1.89"
 license = "MIT"
+authors = ["Gavin Roberts <gsroberts@ucsd.edu>", "WCSNG @ UC San Diego"]
 repository = "https://github.com/ucsdwcsng/oxidation"
-readme = "README.md"
+homepage = "https://github.com/ucsdwcsng/oxidation"
+keywords = ["sigmf", "sdr", "radio", "iq", "signal-processing"]
+categories = ["encoding", "parser-implementations", "science"]
 
 [workspace.dependencies]
 bytemuck = "1.25.2"
 geojson = "1.0.0"
 jsonschema = "0.60.2"
 num-complex = "0.4.6"
+proc-macro2 = "1.0"
+quote = "1.0.47"
 rayon = "1.12.0"
+schemars = "1.2.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_derive = "1.0.229"
 serde_json = "1.0.154"
 sha2 = "0.11.1"
-quote = "1.0.47"
-schemars = "1.2.3"
 syn = { version = "3.0.9", features = ["full"] }
-sigmf = { package = "wcsng-sigmf", version = "0.1.0", path = "crates/sigmf" }
-sigmf-derive = { package = "wcsng-sigmf-derive", version = "0.1.0", path = "crates/sigmf-derive" }
 tar = "0.4.46"
-uuid = "1.29.0"
+trybuild = "1.0"
+sigmf-derive = { package = "wcsng-sigmf-derive", version = "=0.1.1", path = "sigmf-derive" }
+
+[package]
+name = "wcsng-sigmf"
+description = "Read, write, and validate SigMF (Signal Metadata Format) recordings, metadata, collections, and archives"
+documentation = "https://docs.rs/wcsng-sigmf"
+readme = "README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+include = [
+    "/src/**",
+    "/examples/**",
+    "/benches/**",
+    "/tests/**",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+]
+
+[lib]
+name = "sigmf"
+
+[features]
+default = []
+# Enable `#[derive(SigmfExtension)]` for typed metadata extensions.
+derive = ["dep:sigmf-derive"]
+# Enable JSON Schema generation and validation against the SigMF schemas.
+schema = ["dep:jsonschema", "dep:schemars"]
 
 [dependencies]
-sigmf.workspace = true
+bytemuck.workspace = true
+geojson.workspace = true
+jsonschema = { workspace = true, optional = true }
+num-complex.workspace = true
+rayon.workspace = true
+schemars = { workspace = true, optional = true }
+serde.workspace = true
+serde_derive.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sigmf-derive = { workspace = true, optional = true }
+tar.workspace = true
+
+[dev-dependencies]
+trybuild.workspace = true
+
+[[example]]
+name = "derive_extension"
+required-features = ["derive"]
+
+[[bench]]
+name = "sample_codec"
+harness = false
+
+[[bench]]
+name = "sparse_memory"
+harness = false
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

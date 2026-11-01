@@ -3,26 +3,66 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  test:
-    strategy:
-      fail-fast: false
+  lint:
+    name: Format and lint
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           components: clippy, rustfmt
       - run: cargo fmt --all -- --check
-      - run: cargo test --workspace --all-targets
-      - run: cargo check -p wcsng-sigmf --no-default-features
-      - run: cargo check -p wcsng-sigmf --features derive
-      - run: cargo check -p wcsng-sigmf --features schema
-      - run: cargo test -p wcsng-sigmf --features derive,schema --all-targets
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo clippy --workspace --all-targets --no-default-features -- -D warnings
 
+  test:
+    name: Test (${{ matrix.features }})
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        features: ["", "derive", "schema", "derive,schema"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --workspace --all-targets --no-default-features --features "${{ matrix.features }}"
+      - run: cargo test --workspace --doc --no-default-features --features "${{ matrix.features }}"
+
+  docs:
+    name: Documentation
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo doc --workspace --all-features --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  msrv:
+    name: MSRV (1.89)
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.89
+      - run: cargo check --workspace --all-targets --all-features
+
+  package:
+    name: Package
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo package --workspace
