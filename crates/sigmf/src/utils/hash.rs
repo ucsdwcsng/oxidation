@@ -1,16 +1,17 @@
-use crate::SmfError;
+use crate::SigmfError;
 use sha2::Digest;
 use std::io::Read;
 
-pub fn hash_from_reader(reader: &mut dyn Read) -> Result<String, SmfError> {
-    let mut chunk = [0u8; 1024]; // adjust chunk size as needed
+pub fn hash_from_reader(reader: &mut dyn Read) -> Result<String, SigmfError> {
+    let mut chunk = [0u8; 64 * 1024];
 
     let mut hasher = sha2::Sha512::new();
     loop {
         match reader.read(&mut chunk) {
             Ok(0) => break, // end of file
             Ok(n) => hasher.update(&chunk[..n]),
-            Err(err) => return Err(SmfError::Io(err)),
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(err) => return Err(SigmfError::Io(err)),
         }
     }
     let hash = hasher.finalize();
@@ -18,14 +19,14 @@ pub fn hash_from_reader(reader: &mut dyn Read) -> Result<String, SmfError> {
     Ok(hash_str)
 }
 
-pub fn hash_from_path(path: &String) -> Result<String, SmfError> {
-    let file = std::fs::File::open(&path)?;
+pub fn hash_from_path(path: impl AsRef<std::path::Path>) -> Result<String, SigmfError> {
+    let file = std::fs::File::open(path)?;
     let mut reader = std::io::BufReader::new(file);
     let hash = hash_from_reader(&mut reader)?;
     Ok(hash)
 }
 
-pub fn hash_from_slice(data: &[u8]) -> Result<String, SmfError> {
+pub fn hash_from_slice(data: &[u8]) -> Result<String, SigmfError> {
     let mut hasher = sha2::Sha512::new();
     hasher.update(data);
     let hash = hasher.finalize();
@@ -36,14 +37,51 @@ pub fn hash_from_slice(data: &[u8]) -> Result<String, SmfError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::file::*;
+    use std::io::{self, Cursor};
+
+    struct InterruptedShortReader {
+        cursor: Cursor<Vec<u8>>,
+        interrupted: bool,
+    }
+
+    impl Read for InterruptedShortReader {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            if !self.interrupted {
+                self.interrupted = true;
+                return Err(io::ErrorKind::Interrupted.into());
+            }
+            let limit = buffer.len().min(3);
+            self.cursor.read(&mut buffer[..limit])
+        }
+    }
 
     #[test]
-    fn test_get_hash_from() {
-        // Test the hash of the LICENSE file since it is a known file
-        let root_dir = get_root_dir();
-        let path = format!("{}/LICENSE", root_dir);
+    fn hashes_a_self_contained_temporary_fixture() {
+        let path = std::env::temp_dir().join(format!(
+            "sigmf-hash-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let fixture = b"sigmf hash fixture";
+        std::fs::write(&path, fixture).unwrap();
         let hash = hash_from_path(&path).unwrap();
-        assert_eq!(hash, "b3c70582ebddd4c287211f2545f7c1305e1d7693df24218b32002774ed24e4a7df9989f6ad0d2ddb69b76f8390fdc7783a847bd81b94762d17e790cbe0835d6d");
+        std::fs::remove_file(path).unwrap();
+        assert_eq!(hash, hash_from_slice(fixture).unwrap());
+    }
+
+    #[test]
+    fn reader_hash_retries_interrupted_and_short_reads() {
+        let fixture = b"short and interrupted";
+        let mut reader = InterruptedShortReader {
+            cursor: Cursor::new(fixture.to_vec()),
+            interrupted: false,
+        };
+        assert_eq!(
+            hash_from_reader(&mut reader).unwrap(),
+            hash_from_slice(fixture).unwrap()
+        );
     }
 }

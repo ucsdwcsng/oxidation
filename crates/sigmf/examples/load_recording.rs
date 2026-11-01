@@ -1,14 +1,17 @@
-use sigmf::utils::file::get_root_dir;
+use sigmf::recording_file::Recording;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Load a sigmf-meta file
-    let path = format!("{}/{}", get_root_dir(), "example.sigmf-data");
+    let path = std::env::args()
+        .nth(1)
+        .ok_or("usage: load_recording <recording.sigmf-meta>")?;
+    let mut recording = Recording::open(path)?;
+    let frame_count = recording.frame_count()?;
+    let start = recording.first_sample_index();
+    for block in recording.frame_blocks(start, frame_count, 4096)? {
+        let _samples = block?;
+    }
 
-    let sigmf = sigmf::Builder::from_recording(&path)?;
-    let recording = &sigmf.get_recordings()[0];
-    let samples = sigmf.get_samples_from_recording(recording)?;
-
-    println!("samples: {:?}", samples.len());
+    println!("frames: {frame_count}");
     Ok(())
 }

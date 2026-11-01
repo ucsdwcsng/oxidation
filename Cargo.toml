@@ -6,24 +6,29 @@ members = ["crates/*", "."]
 name = "oxidation"
 version = "0.1.0"
 edition.workspace = true
+rust-version.workspace = true
 
 [workspace.package]
 edition = "2021"
+rust-version = "1.89"
 
 [workspace.dependencies]
-bytemuck = "1.17.0"
-geojson = "0.24.1"
-indicatif = "0.17.8"
+bytemuck = "1.25.2"
+geojson = "1.0.0"
+jsonschema = "0.60.2"
 num-complex = "0.4.6"
-rayon = "1.10.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_derive = "1.0"
-serde_json = "1.0"
-sha2 = "0.10.8"
+rayon = "1.12.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_derive = "1.0.229"
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+quote = "1.0.47"
+schemars = "1.2.3"
+syn = { version = "3.0.9", features = ["full"] }
 sigmf = { version = "0.1.0", path = "crates/sigmf" }
-tar = "0.4"
-users = "0.11.0"
-uuid = "1.10.0"
+sigmf-derive = { version = "0.1.0", path = "crates/sigmf-derive" }
+tar = "0.4.46"
+uuid = "1.29.0"
 
 [dependencies]
 sigmf.workspace = true

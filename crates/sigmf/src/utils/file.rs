@@ -1,80 +1,51 @@
-use crate::{collection, recording, utils::hash::*, SigMF, SmfError, MAX_META_SIZE};
+use crate::{collection, recording, utils::hash::*, Archive, SigmfError, MAX_META_SIZE};
 use std::fs::File;
 use std::io::Read;
-use tar::{Archive, Entry, Header};
-use users::{get_current_gid, get_current_uid, get_user_by_uid};
+use tar::{Archive as TarArchive, Entry, Header};
 
 pub fn get_root_dir() -> String {
-    "/home/groberts/dev/github/oxidation".to_string()
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .display()
+        .to_string()
 }
 
-pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SmfError> {
-    let mut header = Header::new_gnu();
-    let _username = get_user_by_uid(get_current_uid())
-        .unwrap()
-        .name()
-        .to_str()
-        .unwrap()
-        .to_string();
-    let mtime = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    header.set_size(meta_bytes.len() as u64);
-    header.set_path(format!("{}.sigmf-meta", filename))?;
-    header.set_mode(0o777);
-    header.set_gid(get_current_gid() as u64);
-    header.set_uid(get_current_uid() as u64);
-    header.set_mtime(mtime);
-    // header.set_username(&username)?;
-    header.set_entry_type(tar::EntryType::Regular);
-    header.set_cksum();
-    Ok(header)
+pub fn get_meta_header(filename: &str, meta_bytes: &[u8]) -> Result<Header, SigmfError> {
+    get_header(&format!("{filename}.sigmf-meta"), meta_bytes.len() as u64)
 }
 
-pub fn get_data_header(filename: &str, data_bytes: &[u8]) -> Result<Header, SmfError> {
-    let mut header = Header::new_gnu();
-    let _username = get_user_by_uid(get_current_uid())
-        .unwrap()
-        .name()
-        .to_str()
-        .unwrap()
-        .to_string();
-    let mtime = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    header.set_size(data_bytes.len() as u64);
-    header.set_path(format!("{}.sigmf-data", filename))?;
-    header.set_mode(0o777);
-    header.set_gid(get_current_gid() as u64);
-    header.set_uid(get_current_uid() as u64);
-    header.set_mtime(mtime);
-    // header.set_username(&username)?;
-    header.set_entry_type(tar::EntryType::Regular);
-    header.set_cksum();
-    Ok(header)
+pub fn get_data_header(filename: &str, data_bytes: &[u8]) -> Result<Header, SigmfError> {
+    get_header(&format!("{filename}.sigmf-data"), data_bytes.len() as u64)
 }
 
-pub fn get_collection_header(filename: &str, collection_bytes: &[u8]) -> Result<Header, SmfError> {
+pub fn get_data_header_for_member(
+    member_path: &std::path::Path,
+    data_bytes: &[u8],
+) -> Result<Header, SigmfError> {
+    let path = member_path.to_str().ok_or_else(|| {
+        SigmfError::InvalidMetadata("archive member path must be valid UTF-8".into())
+    })?;
+    get_header(path, data_bytes.len() as u64)
+}
+
+pub fn get_collection_header(
+    filename: &str,
+    collection_bytes: &[u8],
+) -> Result<Header, SigmfError> {
+    get_header(
+        &format!("{filename}.sigmf-collection"),
+        collection_bytes.len() as u64,
+    )
+}
+
+fn get_header(path: &str, size: u64) -> Result<Header, SigmfError> {
     let mut header = Header::new_gnu();
-    let _username = get_user_by_uid(get_current_uid())
-        .unwrap()
-        .name()
-        .to_str()
-        .unwrap()
-        .to_string();
-    let mtime = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    header.set_size(collection_bytes.len() as u64);
-    header.set_path(format!("{}.sigmf-collection", filename))?;
-    header.set_mode(0o777);
-    header.set_gid(get_current_gid() as u64);
-    header.set_uid(get_current_uid() as u64);
-    header.set_mtime(mtime);
-    // header.set_username(&username)?;
+    header.set_size(size);
+    header.set_path(path)?;
+    header.set_mode(0o644);
+    header.set_gid(0);
+    header.set_uid(0);
+    header.set_mtime(0);
     header.set_entry_type(tar::EntryType::Regular);
     header.set_cksum();
     Ok(header)
@@ -84,43 +55,90 @@ pub fn get_bytes_in_archive_from_name_ext(
     archive_path: &str,
     name: &str,
     ext: &str,
-) -> Result<(Vec<u8>, Header), SmfError> {
+) -> Result<(Vec<u8>, Header), SigmfError> {
     let file = File::open(archive_path)?;
-    let mut archive = Archive::new(file);
+    let mut archive = TarArchive::new(file);
 
     for file in archive.entries()? {
         let mut file = file?;
         let header = file.header().clone();
         let file_path = file.path()?.to_path_buf();
 
-        if let (Some(file_name), Some(file_ext)) = (
-            file_path.file_stem().and_then(|s| s.to_str()),
-            file_path.extension().and_then(|s| s.to_str()),
-        ) {
-            if file_name == name && file_ext == ext {
-                let mut buffer = Vec::new();
-                file.read_to_end(&mut buffer)?;
-
-                return Ok((buffer, header));
-            }
+        if archive_member_name(&file_path, ext).as_deref() == Some(name) {
+            let mut buffer = Vec::new();
+            file.read_to_end(&mut buffer)?;
+            return Ok((buffer, header));
         }
     }
 
-    Err(SmfError::NotFound("File not found".to_string()))
+    Err(SigmfError::NotFound("File not found".to_string()))
+}
+
+pub fn get_size_in_archive_from_name_ext(
+    archive_path: &str,
+    name: &str,
+    ext: &str,
+) -> Result<u64, SigmfError> {
+    let file = File::open(archive_path)?;
+    let mut archive = TarArchive::new(file);
+
+    for entry in archive.entries()? {
+        let entry = entry?;
+        let file_path = entry.path()?.to_path_buf();
+        if archive_member_name(&file_path, ext).as_deref() == Some(name) {
+            return Ok(entry.size());
+        }
+    }
+
+    Err(SigmfError::NotFound("File not found".to_string()))
+}
+
+pub fn append_archive_member_from_name_ext(
+    archive_path: &str,
+    name: &str,
+    ext: &str,
+    builder: &mut tar::Builder<File>,
+) -> Result<(), SigmfError> {
+    let file = File::open(archive_path)?;
+    let mut archive = TarArchive::new(file);
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        let file_path = entry.path()?.to_path_buf();
+        if archive_member_name(&file_path, ext).as_deref() == Some(name) {
+            let header = entry.header().clone();
+            builder.append(&header, &mut entry)?;
+            return Ok(());
+        }
+    }
+    Err(SigmfError::NotFound(format!(
+        "archive member {name:?} with extension {ext:?} was not found"
+    )))
 }
 
 pub fn get_bytes_in_archive_from_hash(
     archive_path: &str,
     hash: &str,
-) -> Result<(Vec<u8>, Header), SmfError> {
+) -> Result<(Vec<u8>, Header), SigmfError> {
     let file = File::open(archive_path)?;
-    let mut archive = Archive::new(file);
+    let mut archive = TarArchive::new(file);
 
     for file in archive.entries()? {
         let mut file = file?;
+        let file_path = file.path()?.to_path_buf();
+        if file_path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            != Some("sigmf-meta")
+        {
+            continue;
+        }
         let header = file.header().clone();
         if file.size() > MAX_META_SIZE as u64 {
-            continue;
+            return Err(SigmfError::ResourceLimit(format!(
+                "metadata member {} exceeds the {} byte limit",
+                file_path.display(),
+                MAX_META_SIZE
+            )));
         }
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
@@ -131,34 +149,56 @@ pub fn get_bytes_in_archive_from_hash(
         }
     }
 
-    Err(SmfError::NotFound(format!(
+    Err(SigmfError::NotFound(format!(
         "File not found using hash {}",
         hash
     )))
 }
 
-pub fn process_meta_file(file: &mut Entry<File>, file_name: &str, sigmf: &mut SigMF) {
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).expect("Failed to read file");
-    let meta_hash = hash_from_slice(&buffer[..]);
-    match meta_hash {
-        Ok(hash) => {
-            let recording = recording::SmfRecording::new(file_name, &hash);
-            sigmf.add_recording(recording);
-        }
-        Err(_) => {
-            eprintln!("Warning: Skipping file: {} with invalid hash", file_name);
-            eprintln!("Error: {}", meta_hash.unwrap_err());
-        }
+pub fn process_meta_file(
+    file: &mut Entry<File>,
+    file_name: &str,
+    archive: &mut Archive,
+) -> Result<(), SigmfError> {
+    if file.size() > MAX_META_SIZE as u64 {
+        return Err(SigmfError::ResourceLimit(format!(
+            "metadata member exceeds the {} byte limit",
+            MAX_META_SIZE
+        )));
     }
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+    let metadata = crate::meta::Metadata::from_slice(&buffer)?;
+    let hash = hash_from_slice(&buffer)?;
+    archive.add_recording_with_metadata(recording::RecordingRef::new(file_name, &hash), metadata);
+    Ok(())
 }
 
-pub fn process_collection_file(file: &mut Entry<File>, sigmf: &mut SigMF) {
+pub fn process_collection_file(
+    file: &mut Entry<File>,
+    name: &str,
+    archive: &mut Archive,
+) -> Result<(), SigmfError> {
+    if file.size() > MAX_META_SIZE as u64 {
+        return Err(SigmfError::ResourceLimit(format!(
+            "collection member exceeds the {} byte limit",
+            MAX_META_SIZE
+        )));
+    }
     let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).expect("Failed to read file");
+    file.read_to_end(&mut buffer)?;
+    let value = crate::json::parse_unique_value(&buffer)?;
+    let collection: collection::Collection = serde_json::from_value(value)
+        .map_err(|error| SigmfError::InvalidMetadata(error.to_string()))?;
 
-    let collection: collection::SmfCollection =
-        serde_json::from_slice(&buffer[..]).expect("Failed to parse collection");
+    archive.set_collection_member(name, collection)
+}
 
-    sigmf.set_collection(collection);
+fn archive_member_name(path: &std::path::Path, extension: &str) -> Option<String> {
+    if path.extension()?.to_str()? != extension {
+        return None;
+    }
+    let stem = path.file_stem()?;
+    let name = path.with_file_name(stem);
+    name.to_str().map(str::to_owned)
 }

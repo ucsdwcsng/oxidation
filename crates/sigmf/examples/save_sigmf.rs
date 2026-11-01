@@ -1,7 +1,6 @@
 use sigmf::{
-    global,
-    meta::SmfMeta,
-    utils::{file::get_root_dir, hash::hash_from_slice},
+    global::{self, Global},
+    meta::Metadata,
     Number,
 };
 use std::error::Error;
@@ -16,26 +15,25 @@ const VERSION: &str = "1.0.0";
 const SAMPLE_RATE: Number = 100e6;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let path = format!("{}/{}.sigmf", get_root_dir(), FILENAME);
-    let mut builder = sigmf::Builder::new(path);
+    let path = std::env::args()
+        .nth(1)
+        .ok_or("usage: save_sigmf <output.sigmf>")?;
+    let mut builder = sigmf::ArchiveWriter::new(path)?;
 
     let data = vec![0u8; 1000];
-    let data_hash = hash_from_slice(&data)?;
 
-    let mut meta = SmfMeta::default();
-    meta.set_sha512(data_hash);
-    meta.set_author(AUTHOR.to_string());
-    meta.set_datatype(global::SmfDataType::new(
-        global::SmfDataTypeDomain::Complex,
-        Some(global::SmfDataTypeDtype::F32),
-        Some(global::SmfDataTypeEndian::LE),
+    let datatype = global::Datatype::new(
+        global::SampleDomain::Complex,
+        Some(global::ComponentType::F32),
+        Some(global::Endianness::LE),
         None,
-    ));
+    )?;
+    let mut meta = Metadata::new(Global::new(VERSION, datatype), Vec::new(), Vec::new());
+    meta.set_author(AUTHOR.to_string());
     meta.set_description(DESCRIPTION.to_string());
     meta.set_hw(HW.to_string());
     meta.set_license(LICENSE.to_string());
     meta.set_recorder(RECORDER.to_string());
-    meta.set_version(VERSION.to_string());
     meta.set_sample_rate(SAMPLE_RATE);
 
     builder.add(FILENAME, meta, &data[..])?;
