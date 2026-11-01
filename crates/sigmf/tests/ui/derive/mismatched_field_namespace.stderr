@@ -1,0 +1,5 @@
+error: extension fields must use the "lab:" namespace
+ --> tests/ui/derive/mismatched_field_namespace.rs:7:22
+  |
+7 |     #[serde(rename = "other:value")]
+  |                      ^^^^^^^^^^^^^

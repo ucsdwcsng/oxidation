@@ -1,0 +1,5 @@
+error: SigmfExtension can only be derived for structs
+ --> tests/ui/derive/unsupported_enum.rs:6:6
+  |
+6 | enum Unsupported {
+  |      ^^^^^^^^^^^

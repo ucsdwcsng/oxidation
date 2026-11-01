@@ -1,0 +1,5 @@
+error: missing #[sigmf(namespace = "...")]
+ --> tests/ui/derive/missing_namespace.rs:6:8
+  |
+6 | struct MissingNamespace {
+  |        ^^^^^^^^^^^^^^^^
