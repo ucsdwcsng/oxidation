@@ -1003,15 +1003,26 @@ impl Drop for ArchiveWriter {
 }
 
 fn archive_member_stem(path: &std::path::Path) -> Result<String, SigmfError> {
-    let stem = path.file_stem().ok_or_else(|| {
-        SigmfError::InvalidMetadata("archive recording member has no filename".into())
-    })?;
-    let name = path.with_file_name(stem);
-    let name = name.to_str().ok_or_else(|| {
+    let path = path.to_str().ok_or_else(|| {
         SigmfError::InvalidMetadata("archive recording name must be valid UTF-8".into())
     })?;
-    validate_recording_name(name)?;
-    Ok(name.to_owned())
+    let (parent, filename) = path.rsplit_once('/').unwrap_or(("", path));
+    let stem = filename
+        .rsplit_once('.')
+        .filter(|(stem, _)| !stem.is_empty())
+        .map_or(filename, |(stem, _)| stem);
+    if stem.is_empty() {
+        return Err(SigmfError::InvalidMetadata(
+            "archive recording member has no filename".into(),
+        ));
+    }
+    let name = if parent.is_empty() {
+        stem.to_owned()
+    } else {
+        format!("{parent}/{stem}")
+    };
+    validate_recording_name(&name)?;
+    Ok(name)
 }
 
 fn validate_recording_name(name: &str) -> Result<(), SigmfError> {
@@ -1080,10 +1091,10 @@ fn archive_dataset_member(
     }
     let member = if let Some(dataset_name) = dataset_name {
         validate_dataset_filename(dataset_name)?;
-        std::path::Path::new(recording_name)
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new(""))
-            .join(dataset_name)
+        match recording_name.rsplit_once('/') {
+            Some((parent, _)) => std::path::PathBuf::from(format!("{parent}/{dataset_name}")),
+            None => std::path::PathBuf::from(dataset_name),
+        }
     } else {
         std::path::PathBuf::from(format!("{recording_name}.sigmf-data"))
     };

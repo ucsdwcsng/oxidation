@@ -23,6 +23,7 @@ pub enum SampleValue {
     RealU32(u32),
 }
 
+#[allow(unknown_lints)]
 #[allow(clippy::manual_is_multiple_of)]
 pub fn decode(
     data: &[u8],
@@ -56,6 +57,7 @@ pub fn decode(
     }
 }
 
+#[allow(unknown_lints)]
 #[allow(clippy::manual_is_multiple_of)]
 pub fn encode(
     samples: &[SampleValue],
@@ -187,6 +189,7 @@ impl<R: Read> SampleReader<R> {
         })
     }
 
+    #[allow(unknown_lints)]
     #[allow(clippy::manual_is_multiple_of)]
     /// Reads up to `maximum_frames`, tolerating short reads and surfacing a
     /// truncated final frame as an error.
@@ -422,6 +425,7 @@ fn decode_components(data: &[u8], datatype: &Datatype) -> Result<Vec<SampleValue
     Ok(values)
 }
 
+#[allow(unknown_lints)]
 #[allow(clippy::manual_is_multiple_of)]
 fn pair_complex_components(
     components: Vec<SampleValue>,
@@ -491,6 +495,7 @@ pub fn bytes_per_frame(datatype: &Datatype, channel_count: usize) -> Result<usiz
         .ok_or_else(|| SigmfError::InvalidMetadata("frame size overflow".to_string()))
 }
 
+#[allow(unknown_lints)]
 #[allow(clippy::manual_is_multiple_of)]
 pub fn frame_count(
     dataset_bytes: u64,

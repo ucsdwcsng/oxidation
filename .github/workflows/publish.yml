@@ -1,0 +1,62 @@
+name: Publish crates
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-crates
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Check release versions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          metadata="$(cargo metadata --no-deps --format-version 1)"
+          for package in wcsng-sigmf-derive wcsng-sigmf; do
+            package_version="$(jq -er --arg name "$package" '.packages[] | select(.name == $name) | .version' <<< "$metadata")"
+            if [ "$package_version" != "$version" ]; then
+              echo "::error::$package version $package_version does not match tag $RELEASE_TAG"
+              exit 1
+            fi
+          done
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --all-targets --all-features
+      - run: cargo build --workspace --release --all-features
+      - run: cargo package -p wcsng-sigmf-derive -p wcsng-sigmf --all-features
+      - name: Save crate archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: crates-${{ github.ref_name }}
+          path: |
+            target/package/wcsng-sigmf-derive-*.crate
+            target/package/wcsng-sigmf-*.crate
+          if-no-files-found: error
+      - name: Publish derive macros
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo "::error::Repository secret CRATES_IO_TOKEN is required"
+            exit 1
+          fi
+          cargo publish -p wcsng-sigmf-derive --registry crates-io
+      - name: Publish SigMF
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish -p wcsng-sigmf --registry crates-io

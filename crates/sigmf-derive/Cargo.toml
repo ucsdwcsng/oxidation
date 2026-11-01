@@ -1,10 +1,15 @@
 [package]
-name = "sigmf-derive"
+name = "wcsng-sigmf-derive"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
+description = "Derive macros for SigMF metadata extensions"
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
 
 [lib]
+name = "sigmf_derive"
 proc-macro = true
 
 [dependencies]

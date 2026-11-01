@@ -5,12 +5,21 @@ members = ["crates/*", "."]
 [package]
 name = "oxidation"
 version = "0.1.0"
+publish = false
 edition.workspace = true
 rust-version.workspace = true
+description = "Utility crates from WCSNG at UC San Diego"
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+include = ["src/**", "README.md", "LICENSE"]
 
 [workspace.package]
 edition = "2021"
 rust-version = "1.89"
+license = "MIT"
+repository = "https://github.com/ucsdwcsng/oxidation"
+readme = "README.md"
 
 [workspace.dependencies]
 bytemuck = "1.25.2"
@@ -25,8 +34,8 @@ sha2 = "0.11.1"
 quote = "1.0.47"
 schemars = "1.2.3"
 syn = { version = "3.0.9", features = ["full"] }
-sigmf = { version = "0.1.0", path = "crates/sigmf" }
-sigmf-derive = { version = "0.1.0", path = "crates/sigmf-derive" }
+sigmf = { package = "wcsng-sigmf", version = "0.1.0", path = "crates/sigmf" }
+sigmf-derive = { package = "wcsng-sigmf-derive", version = "0.1.0", path = "crates/sigmf-derive" }
 tar = "0.4.46"
 uuid = "1.29.0"
 
