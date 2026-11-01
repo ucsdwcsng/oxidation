@@ -3,7 +3,7 @@
 This repository publishes two crates to crates.io:
 
 | Package              | Library        | Path            |
-|----------------------|----------------|-----------------|
+| -------------------- | -------------- | --------------- |
 | `wcsng-sigmf`        | `sigmf`        | `.`             |
 | `wcsng-sigmf-derive` | `sigmf_derive` | `sigmf-derive/` |
 
@@ -71,5 +71,5 @@ cargo publish -p wcsng-sigmf
 - docs.rs builds the documentation for each published version automatically,
   with all features enabled (see `[package.metadata.docs.rs]`).
 - The [docs workflow](.github/workflows/docs.yml) publishes the API docs for
-  `main` to GitHub Pages. Under **Settings > Pages**, set **Source** to
-  **GitHub Actions** once.
+  `main` to <https://ucsdwcsng.github.io/oxidation/>.
+

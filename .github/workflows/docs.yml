@@ -18,6 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
+      - uses: actions/configure-pages@v5
       - name: Build API docs
         run: cargo doc --workspace --all-features --no-deps
         env:
