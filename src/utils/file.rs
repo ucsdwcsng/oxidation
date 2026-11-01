@@ -15,19 +15,6 @@ use std::fs::File;
 use std::io::Read;
 use tar::{Archive as TarArchive, Entry, Header};
 
-/// Returns the directory containing the `sigmf` crate sources at compile time.
-///
-/// This is a leftover from an earlier repository layout and is not meaningful
-/// for dependent crates.
-#[deprecated(
-    since = "0.1.1",
-    note = "returns a compile-time path of the sigmf crate source and is not meaningful for dependents"
-)]
-#[doc(hidden)]
-pub fn get_root_dir() -> String {
-    env!("CARGO_MANIFEST_DIR").to_string()
-}
-
 /// Builds a tar header for a `{filename}.sigmf-meta` member of
 /// `meta_bytes.len()` bytes.
 ///

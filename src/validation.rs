@@ -303,18 +303,18 @@ impl Metadata {
                 None,
             );
         }
-        if let Some(sample_rate) = global.sample_rate {
-            if sample_rate <= 0.0 || sample_rate > 1_000_000_000_000.0 {
-                push_issue(
-                    &mut issues,
-                    "sample-rate-out-of-range",
-                    Severity::Error,
-                    "/global/core:sample_rate",
-                    version,
-                    "sample rate must be greater than zero and at most 1,000,000,000,000".into(),
-                    None,
-                );
-            }
+        if let Some(sample_rate) = global.sample_rate
+            && (sample_rate <= 0.0 || sample_rate > 1_000_000_000_000.0)
+        {
+            push_issue(
+                &mut issues,
+                "sample-rate-out-of-range",
+                Severity::Error,
+                "/global/core:sample_rate",
+                version,
+                "sample rate must be greater than zero and at most 1,000,000,000,000".into(),
+                None,
+            );
         }
         check_geolocation(
             &mut issues,
@@ -346,18 +346,18 @@ impl Metadata {
                 None,
             );
         }
-        if let Some(hash) = &global.sha512 {
-            if hash.len() != 128 || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-                push_issue(
-                    &mut issues,
-                    "invalid-dataset-digest",
-                    Severity::Error,
-                    "/global/core:sha512",
-                    version,
-                    "dataset digest must contain exactly 128 hexadecimal characters".into(),
-                    Some("Recompute the digest from the dataset-file bytes.".into()),
-                );
-            }
+        if let Some(hash) = &global.sha512
+            && (hash.len() != 128 || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        {
+            push_issue(
+                &mut issues,
+                "invalid-dataset-digest",
+                Severity::Error,
+                "/global/core:sha512",
+                version,
+                "dataset digest must contain exactly 128 hexadecimal characters".into(),
+                Some("Recompute the digest from the dataset-file bytes.".into()),
+            );
         }
 
         check_extra_core_fields(
@@ -400,18 +400,18 @@ impl Metadata {
                 &format!("{pointer}/core:frequency"),
                 version,
             );
-            if let Some(datetime) = &capture.datetime {
-                if !is_sigmf_timestamp(datetime) {
-                    push_issue(
-                        &mut issues,
-                        "invalid-utc-timestamp",
-                        Severity::Error,
-                        &format!("{pointer}/core:datetime"),
-                        version,
-                        "timestamp must use UTC YYYY-MM-DDTHH:MM:SS[.fraction]Z form".into(),
-                        None,
-                    );
-                }
+            if let Some(datetime) = &capture.datetime
+                && !is_sigmf_timestamp(datetime)
+            {
+                push_issue(
+                    &mut issues,
+                    "invalid-utc-timestamp",
+                    Severity::Error,
+                    &format!("{pointer}/core:datetime"),
+                    version,
+                    "timestamp must use UTC YYYY-MM-DDTHH:MM:SS[.fraction]Z form".into(),
+                    None,
+                );
             }
             check_geolocation(
                 &mut issues,
@@ -524,18 +524,17 @@ impl Metadata {
             }
             if let (Some(lower), Some(upper)) =
                 (annotation.freq_lower_edge, annotation.freq_upper_edge)
+                && lower > upper
             {
-                if lower > upper {
-                    push_issue(
-                        &mut issues,
-                        "reversed-frequency-edges",
-                        Severity::Error,
-                        &pointer,
-                        version,
-                        "frequency lower edge exceeds the upper edge".into(),
-                        None,
-                    );
-                }
+                push_issue(
+                    &mut issues,
+                    "reversed-frequency-edges",
+                    Severity::Error,
+                    &pointer,
+                    version,
+                    "frequency lower edge exceeds the upper edge".into(),
+                    None,
+                );
             }
             check_extra_core_fields(
                 &mut issues,

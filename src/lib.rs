@@ -600,10 +600,10 @@ impl Archive {
         &self,
         recording: &recording::RecordingRef,
     ) -> Result<meta::Metadata, SigmfError> {
-        if let Some(metadata) = self.metadata_by_name.get(recording.get_name()) {
-            if metadata.original_digest()?.as_deref() == Some(recording.get_hash()) {
-                return Ok(metadata.clone());
-            }
+        if let Some(metadata) = self.metadata_by_name.get(recording.get_name())
+            && metadata.original_digest()?.as_deref() == Some(recording.get_hash())
+        {
+            return Ok(metadata.clone());
         }
         match &self.archive_path {
             Some(path) => {
@@ -1053,13 +1053,13 @@ fn load_archive_file(path: &std::path::Path) -> Result<Archive, SigmfError> {
                     recording.get_name()
                 ))
             })?;
-        if let Some(dataset_member) = archive_dataset_member(recording.get_name(), metadata)? {
-            if !regular_member_paths.contains(&dataset_member) {
-                return Err(SigmfError::NotFound(format!(
-                    "dataset member {} is missing",
-                    dataset_member.display()
-                )));
-            }
+        if let Some(dataset_member) = archive_dataset_member(recording.get_name(), metadata)?
+            && !regular_member_paths.contains(&dataset_member)
+        {
+            return Err(SigmfError::NotFound(format!(
+                "dataset member {} is missing",
+                dataset_member.display()
+            )));
         }
     }
     Ok(sigmf)
@@ -1123,13 +1123,13 @@ fn read_archive_member_by_path(
                     member_path.display()
                 )));
             }
-            if let Some(maximum) = maximum_size {
-                if entry.size() > maximum {
-                    return Err(SigmfError::ResourceLimit(format!(
-                        "archive member {} exceeds the {maximum} byte limit",
-                        member_path.display()
-                    )));
-                }
+            if let Some(maximum) = maximum_size
+                && entry.size() > maximum
+            {
+                return Err(SigmfError::ResourceLimit(format!(
+                    "archive member {} exceeds the {maximum} byte limit",
+                    member_path.display()
+                )));
             }
             let mut bytes = Vec::new();
             entry.read_to_end(&mut bytes)?;
